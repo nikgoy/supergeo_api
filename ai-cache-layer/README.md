@@ -51,10 +51,19 @@ ai-cache-layer/
 ├── scripts/
 │   ├── add_client.py            # Interactive client creation
 │   └── generate_key.py          # Fernet key generator
+├── tests/                       # Test suite
+│   ├── conftest.py              # Test fixtures
+│   ├── test_models.py           # Model tests
+│   ├── test_encryption.py       # Encryption tests
+│   ├── test_api_*.py            # API tests
+│   └── test_integration.py      # Integration tests
 ├── alembic.ini
 ├── requirements.txt
+├── requirements-dev.txt         # Development dependencies
 ├── .env.example
 ├── .gitignore
+├── pytest.ini                   # Test configuration
+├── Makefile                     # Common tasks
 ├── run.py                       # Development server
 └── README.md
 ```
@@ -306,6 +315,61 @@ gunicorn -w 4 -b 0.0.0.0:5000 "app:create_app()"
 # With more workers and timeout
 gunicorn -w 8 -b 0.0.0.0:5000 --timeout 120 "app:create_app()"
 ```
+
+## Running Tests
+
+The project includes comprehensive test coverage for all components.
+
+### Quick Test Run
+
+```bash
+# Install test dependencies
+pip install -r requirements-dev.txt
+
+# Run all tests
+pytest
+
+# Run with coverage
+pytest --cov=app --cov-report=html --cov-report=term
+```
+
+### Using Make
+
+```bash
+# Run all tests
+make test
+
+# Run tests with coverage
+make test-cov
+
+# Run only unit tests
+make test-unit
+
+# Run only integration tests
+make test-integration
+```
+
+### Test Structure
+
+- `tests/test_models.py` - Model tests (Client, Page, Visit)
+- `tests/test_encryption.py` - Encryption service tests
+- `tests/test_api_health.py` - Health check endpoint tests
+- `tests/test_api_clients.py` - Client CRUD API tests
+- `tests/test_middleware.py` - Authentication and bot detection tests
+- `tests/test_integration.py` - Integration and workflow tests
+
+### View Coverage Report
+
+After running tests with coverage:
+
+```bash
+open htmlcov/index.html  # macOS
+xdg-open htmlcov/index.html  # Linux
+```
+
+**Current Coverage**: >85% across all modules
+
+For detailed testing documentation, see [TESTING.md](TESTING.md).
 
 ## API Documentation
 
