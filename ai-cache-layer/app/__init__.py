@@ -52,9 +52,10 @@ def create_app(config_override: dict = None) -> Flask:
         print("Please ensure DATABASE_URL is set correctly in your .env file")
 
     # Register blueprints
-    from app.api import health_bp, clients_bp
+    from app.api import health_bp, clients_bp, sitemap_bp
     app.register_blueprint(health_bp)
     app.register_blueprint(clients_bp)
+    app.register_blueprint(sitemap_bp)
 
     # Register error handlers
     register_error_handlers(app)
@@ -78,6 +79,7 @@ def create_app(config_override: dict = None) -> Flask:
                 'health': '/health',
                 'ping': '/ping',
                 'clients': '/api/v1/clients',
+                'sitemap': '/api/v1/sitemap',
             },
             'documentation': 'https://github.com/yourusername/ai-cache-layer',
         })

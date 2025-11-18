@@ -441,6 +441,124 @@ GET /api/v1/clients/by-domain/{domain}
 Headers: X-API-Key: your-master-api-key
 ```
 
+### Sitemap Operations
+
+#### Import Sitemap
+
+Import all URLs from a sitemap into the database:
+
+```bash
+POST /api/v1/sitemap/import
+Headers:
+  X-API-Key: your-master-api-key
+  Content-Type: application/json
+
+Body:
+{
+  "client_id": "client-uuid",
+  "sitemap_url": "https://example.com/sitemap.xml",
+  "recursive": true,        // Follow sitemap indices (default: true)
+  "max_depth": 3,           // Max recursion depth (default: 3)
+  "create_pages": true,     // Create Page entries (default: true)
+  "overwrite": false        // Overwrite existing pages (default: false)
+}
+
+Response:
+{
+  "message": "Sitemap imported successfully",
+  "summary": {
+    "total_urls": 150,
+    "created": 145,
+    "skipped": 5,
+    "updated": 0,
+    "errors": 0
+  },
+  "client": {
+    "id": "...",
+    "name": "Example Corp",
+    "domain": "example.com"
+  }
+}
+```
+
+**Features:**
+- Automatically detects sitemap index files and follows nested sitemaps
+- Creates Page entries for all URLs found
+- Skips duplicate URLs by default (set `overwrite: true` to update)
+- Safety limit of 10,000 URLs per import
+- Returns detailed summary of import results
+
+#### Parse Sitemap (Preview)
+
+Parse a sitemap without creating database entries (useful for previewing):
+
+```bash
+POST /api/v1/sitemap/parse
+Headers:
+  X-API-Key: your-master-api-key
+  Content-Type: application/json
+
+Body:
+{
+  "sitemap_url": "https://example.com/sitemap.xml",
+  "recursive": true
+}
+
+Response:
+{
+  "sitemap_url": "https://example.com/sitemap.xml",
+  "total_urls": 150,
+  "urls": [
+    {
+      "loc": "https://example.com/page1",
+      "lastmod": "2024-01-01",
+      "priority": "0.8",
+      "changefreq": "weekly"
+    },
+    ...
+  ],
+  "truncated": true  // If more than 100 URLs
+}
+```
+
+#### List Client Pages
+
+List all pages for a specific client:
+
+```bash
+GET /api/v1/sitemap/client/{client_id}/pages?limit=100&offset=0&has_content=false
+Headers: X-API-Key: your-master-api-key
+
+Query Parameters:
+  - limit: Max pages to return (default: 100, max: 1000)
+  - offset: Number of pages to skip (default: 0)
+  - has_content: Filter by content presence (true/false)
+
+Response:
+{
+  "client_id": "...",
+  "client_name": "Example Corp",
+  "total_pages": 150,
+  "pages": [
+    {
+      "id": "...",
+      "url": "https://example.com/page1",
+      "has_raw_html": false,
+      "last_scraped_at": null,
+      "version": 1,
+      ...
+    }
+  ],
+  "limit": 100,
+  "offset": 0
+}
+```
+
+**Use cases:**
+- View all pages that need scraping (`has_content=false`)
+- View pages with cached content (`has_content=true`)
+- Pagination for large page lists
+
 #### Create Client
 
 ```bash
