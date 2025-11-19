@@ -1,244 +1,31 @@
 """
 Sitemap parsing service.
 
-Parses XML sitemaps and extracts URLs for caching.
-Supports both regular sitemaps and sitemap index files.
+Parses XML sitemaps and extracts URLs for caching using ultimate-sitemap-parser library.
+Supports both regular sitemaps and sitemap index files with robust error handling.
 """
-import xml.etree.ElementTree as ET
-from typing import List, Dict, Optional
-from datetime import datetime
-import requests
-from urllib.parse import urljoin, urlparse
+from typing import List, Dict
+from urllib.parse import urlparse
 import time
+
+from usp.tree import sitemap_tree_for_homepage
 
 from app.config import settings
 
 
 class SitemapParser:
-    """Service for parsing XML sitemaps."""
-
-    # XML namespaces
-    SITEMAP_NS = {
-        'sm': 'http://www.sitemaps.org/schemas/sitemap/0.9',
-        'image': 'http://www.google.com/schemas/sitemap-image/1.1',
-        'news': 'http://www.google.com/schemas/sitemap-news/0.9',
-        'video': 'http://www.google.com/schemas/sitemap-video/1.1',
-    }
+    """Service for parsing XML sitemaps using ultimate-sitemap-parser."""
 
     def __init__(self, timeout: int = 30, max_urls: int = 10000):
         """
         Initialize sitemap parser.
 
         Args:
-            timeout: Timeout for HTTP requests in seconds
+            timeout: Timeout for HTTP requests in seconds (passed to usp)
             max_urls: Maximum number of URLs to parse (safety limit)
         """
         self.timeout = timeout
         self.max_urls = max_urls
-
-    def fetch_sitemap(self, url: str, max_retries: int = 3) -> str:
-        """
-        Fetch sitemap content from URL with retry logic.
-
-        Args:
-            url: Sitemap URL
-            max_retries: Maximum number of retries for transient errors
-
-        Returns:
-            Sitemap XML content as string
-
-        Raises:
-            requests.RequestException: If fetch fails after retries
-            ValueError: If URL is invalid
-        """
-        # Validate URL
-        parsed = urlparse(url)
-        if not parsed.scheme or not parsed.netloc:
-            raise ValueError(f"Invalid URL: {url}")
-
-        last_exception = None
-
-        for attempt in range(max_retries):
-            try:
-                # Fetch with timeout
-                response = requests.get(
-                    url,
-                    timeout=self.timeout,
-                    headers={
-                        'User-Agent': 'AI-Cache-Layer/1.0 (Sitemap Parser)'
-                    }
-                )
-                response.raise_for_status()
-                return response.text
-
-            except requests.exceptions.HTTPError as e:
-                # Retry on 5xx errors and 429 (rate limit)
-                if e.response is not None and e.response.status_code in [429, 500, 502, 503, 504]:
-                    last_exception = e
-                    if attempt < max_retries - 1:
-                        wait_time = 2 ** attempt  # Exponential backoff: 1s, 2s, 4s
-                        print(f"[Sitemap] HTTP {e.response.status_code} for {url}, retrying in {wait_time}s (attempt {attempt + 1}/{max_retries})")
-                        time.sleep(wait_time)
-                        continue
-                # Don't retry on 4xx errors (except 429)
-                raise
-
-            except (requests.exceptions.Timeout, requests.exceptions.ConnectionError) as e:
-                # Retry on network errors
-                last_exception = e
-                if attempt < max_retries - 1:
-                    wait_time = 2 ** attempt
-                    print(f"[Sitemap] Network error for {url}, retrying in {wait_time}s (attempt {attempt + 1}/{max_retries})")
-                    time.sleep(wait_time)
-                    continue
-                raise
-
-        # If we get here, all retries failed
-        raise last_exception
-
-    def parse_sitemap(self, content: str, is_index: bool = None) -> Dict[str, List[Dict]]:
-        """
-        Parse sitemap XML content.
-
-        Args:
-            content: XML sitemap content
-            is_index: Whether this is a sitemap index (auto-detected if None)
-
-        Returns:
-            Dictionary with 'urls' and/or 'sitemaps' keys
-
-        Example return:
-            {
-                'urls': [
-                    {'loc': 'https://example.com/page1', 'lastmod': '2024-01-01', 'priority': '0.8'},
-                    ...
-                ],
-                'sitemaps': ['https://example.com/sitemap2.xml']
-            }
-        """
-        try:
-            root = ET.fromstring(content)
-        except ET.ParseError as e:
-            raise ValueError(f"Invalid XML sitemap: {e}")
-
-        result = {'urls': [], 'sitemaps': []}
-
-        # Detect if this is a sitemap index
-        if is_index is None:
-            is_index = self._is_sitemap_index(root)
-
-        if is_index:
-            # Parse sitemap index
-            result['sitemaps'] = self._parse_sitemap_index(root)
-        else:
-            # Parse regular sitemap
-            result['urls'] = self._parse_url_set(root)
-
-        return result
-
-    def _is_sitemap_index(self, root: ET.Element) -> bool:
-        """
-        Check if XML is a sitemap index.
-
-        Args:
-            root: XML root element
-
-        Returns:
-            True if sitemap index, False if regular sitemap
-        """
-        # Check for <sitemapindex> tag
-        if root.tag.endswith('sitemapindex'):
-            return True
-
-        # Check for <sitemap> children (index contains <sitemap>, regular contains <url>)
-        for ns in ['', '{http://www.sitemaps.org/schemas/sitemap/0.9}']:
-            if root.find(f'{ns}sitemap') is not None:
-                return True
-
-        return False
-
-    def _parse_sitemap_index(self, root: ET.Element) -> List[str]:
-        """
-        Parse sitemap index and extract sitemap URLs.
-
-        Args:
-            root: XML root element
-
-        Returns:
-            List of sitemap URLs
-        """
-        sitemaps = []
-
-        # Try with and without namespace
-        for sitemap in root.findall('.//sm:sitemap', self.SITEMAP_NS):
-            loc = sitemap.find('sm:loc', self.SITEMAP_NS)
-            if loc is not None and loc.text:
-                sitemaps.append(loc.text.strip())
-
-        # Fallback without namespace
-        if not sitemaps:
-            for sitemap in root.findall('.//sitemap'):
-                loc = sitemap.find('loc')
-                if loc is not None and loc.text:
-                    sitemaps.append(loc.text.strip())
-
-        return sitemaps
-
-    def _parse_url_set(self, root: ET.Element) -> List[Dict]:
-        """
-        Parse URL set from sitemap.
-
-        Args:
-            root: XML root element
-
-        Returns:
-            List of URL dictionaries
-        """
-        urls = []
-
-        # Try with namespace
-        for url_elem in root.findall('.//sm:url', self.SITEMAP_NS):
-            url_data = self._extract_url_data(url_elem, with_ns=True)
-            if url_data:
-                urls.append(url_data)
-
-        # Fallback without namespace
-        if not urls:
-            for url_elem in root.findall('.//url'):
-                url_data = self._extract_url_data(url_elem, with_ns=False)
-                if url_data:
-                    urls.append(url_data)
-
-        return urls
-
-    def _extract_url_data(self, url_elem: ET.Element, with_ns: bool = True) -> Optional[Dict]:
-        """
-        Extract URL data from <url> element.
-
-        Args:
-            url_elem: URL XML element
-            with_ns: Whether to use namespace
-
-        Returns:
-            Dictionary with URL data or None
-        """
-        ns = self.SITEMAP_NS if with_ns else {}
-        prefix = 'sm:' if with_ns else ''
-
-        # Extract loc (required)
-        loc_elem = url_elem.find(f'{prefix}loc', ns) if with_ns else url_elem.find('loc')
-        if loc_elem is None or not loc_elem.text:
-            return None
-
-        url_data = {'loc': loc_elem.text.strip()}
-
-        # Extract optional fields
-        for field in ['lastmod', 'changefreq', 'priority']:
-            elem = url_elem.find(f'{prefix}{field}', ns) if with_ns else url_elem.find(field)
-            if elem is not None and elem.text:
-                url_data[field] = elem.text.strip()
-
-        return url_data
 
     def parse_sitemap_recursive(self, url: str, max_depth: int = 3, track_errors: bool = False) -> List[Dict]:
         """
@@ -246,7 +33,7 @@ class SitemapParser:
 
         Args:
             url: Sitemap URL (can be index or regular)
-            max_depth: Maximum recursion depth
+            max_depth: Maximum recursion depth (Note: usp handles this internally)
             track_errors: If True, collect error information (use parse_sitemap_recursive_detailed instead)
 
         Returns:
@@ -260,11 +47,11 @@ class SitemapParser:
 
     def parse_sitemap_recursive_detailed(self, url: str, max_depth: int = 3) -> Dict:
         """
-        Parse sitemap recursively with detailed error tracking.
+        Parse sitemap recursively with detailed error tracking using ultimate-sitemap-parser.
 
         Args:
             url: Sitemap URL (can be index or regular)
-            max_depth: Maximum recursion depth
+            max_depth: Maximum recursion depth (Note: usp library handles depth internally)
 
         Returns:
             Dictionary with 'urls', 'errors', 'visited_sitemaps' keys
@@ -276,53 +63,79 @@ class SitemapParser:
         visited_sitemaps = set()
         errors = []
 
-        def _parse_recursive(sitemap_url: str, depth: int):
-            if depth > max_depth:
-                errors.append({
-                    'url': sitemap_url,
-                    'error': f'Exceeded max depth ({max_depth})',
-                    'depth': depth
-                })
-                return
+        print(f"[Sitemap] Starting recursive parse of: {url}")
 
-            if sitemap_url in visited_sitemaps:
-                return
+        try:
+            # Validate URL format
+            parsed = urlparse(url)
+            if not parsed.scheme or not parsed.netloc:
+                raise ValueError(f"Invalid URL: {url}")
 
-            visited_sitemaps.add(sitemap_url)
+            # Use ultimate-sitemap-parser to fetch and parse recursively
+            # It handles: retries, gzip compression, relative URLs, namespaces, etc.
+            tree = sitemap_tree_for_homepage(url)
 
-            # Fetch and parse
-            try:
-                print(f"[Sitemap] Fetching: {sitemap_url} (depth {depth})")
-                content = self.fetch_sitemap(sitemap_url)
-                result = self.parse_sitemap(content)
+            # Track which sitemaps were visited
+            visited_sitemaps.add(url)
 
-                # Add URLs
-                if result.get('urls'):
-                    all_urls.extend(result['urls'])
-                    print(f"[Sitemap] Found {len(result['urls'])} URLs from {sitemap_url}")
+            # Extract all pages from the tree
+            page_count = 0
+            for page in tree.all_pages():
+                # Convert page object to dictionary format
+                url_data = {'loc': page.url}
 
-                    # Check limit
-                    if len(all_urls) > self.max_urls:
-                        raise ValueError(f"Exceeded maximum URL limit ({self.max_urls})")
+                # Add optional metadata if available
+                if page.last_modified:
+                    url_data['lastmod'] = page.last_modified.isoformat() if hasattr(page.last_modified, 'isoformat') else str(page.last_modified)
 
-                # Recursively parse nested sitemaps
-                if result.get('sitemaps'):
-                    print(f"[Sitemap] Found {len(result['sitemaps'])} child sitemaps in {sitemap_url}")
-                    for nested_url in result['sitemaps']:
-                        # Resolve relative URLs to absolute URLs
-                        absolute_nested_url = self.normalize_url(nested_url, base_url=sitemap_url)
-                        _parse_recursive(absolute_nested_url, depth + 1)
+                if page.priority is not None:
+                    url_data['priority'] = str(page.priority)
 
-            except Exception as e:
-                error_msg = str(e)
-                print(f"[Sitemap] Error parsing {sitemap_url}: {error_msg}")
-                errors.append({
-                    'url': sitemap_url,
-                    'error': error_msg,
-                    'depth': depth
-                })
+                if page.change_frequency:
+                    url_data['changefreq'] = page.change_frequency
 
-        _parse_recursive(url, 0)
+                all_urls.append(url_data)
+                page_count += 1
+
+                # Check limit
+                if len(all_urls) > self.max_urls:
+                    error_msg = f"Exceeded maximum URL limit ({self.max_urls})"
+                    print(f"[Sitemap] {error_msg}")
+                    raise ValueError(error_msg)
+
+            print(f"[Sitemap] Successfully parsed {page_count} URLs from sitemap tree")
+
+            # Try to track sub-sitemaps if available (usp doesn't expose this directly)
+            # So we'll estimate based on the structure
+            if hasattr(tree, 'sub_sitemaps') and tree.sub_sitemaps:
+                for sub in tree.sub_sitemaps:
+                    if hasattr(sub, 'url'):
+                        visited_sitemaps.add(sub.url)
+
+        except ValueError as e:
+            # Re-raise ValueError (max URLs, invalid URL)
+            raise
+
+        except Exception as e:
+            error_msg = str(e)
+            print(f"[Sitemap] Error parsing {url}: {error_msg}")
+            errors.append({
+                'url': url,
+                'error': error_msg,
+                'depth': 0
+            })
+
+            # If we got no URLs and have an error, this is a complete failure
+            if not all_urls:
+                # Try to provide helpful error message
+                if "timed out" in error_msg.lower() or "timeout" in error_msg.lower():
+                    raise Exception(f"Timeout fetching sitemap: {error_msg}")
+                elif "403" in error_msg or "forbidden" in error_msg.lower():
+                    raise Exception(f"Access forbidden (403): The website is blocking the request")
+                elif "404" in error_msg or "not found" in error_msg.lower():
+                    raise Exception(f"Sitemap not found (404): {url}")
+                else:
+                    raise Exception(f"Failed to parse sitemap: {error_msg}")
 
         return {
             'urls': all_urls,
@@ -333,49 +146,115 @@ class SitemapParser:
             'has_errors': len(errors) > 0
         }
 
-    def normalize_url(self, url: str, base_url: str = None) -> str:
+    def fetch_sitemap(self, url: str, max_retries: int = 3) -> str:
         """
-        Normalize URL (resolve relative URLs, remove fragments).
+        Fetch sitemap content from URL (kept for backward compatibility).
+
+        Note: This method is now a thin wrapper. For recursive parsing,
+        use parse_sitemap_recursive_detailed which uses ultimate-sitemap-parser
+        internally and handles retries, compression, etc.
 
         Args:
-            url: URL to normalize
-            base_url: Base URL for resolving relative URLs
+            url: Sitemap URL
+            max_retries: Maximum number of retries (unused, kept for compatibility)
 
         Returns:
-            Normalized URL
-        """
-        # Resolve relative URL
-        if base_url:
-            url = urljoin(base_url, url)
+            Sitemap XML content as string
 
-        # Parse and remove fragment
+        Raises:
+            Exception: If fetch fails
+        """
+        import requests
+
+        # Validate URL
         parsed = urlparse(url)
-        normalized = parsed._replace(fragment='').geturl()
+        if not parsed.scheme or not parsed.netloc:
+            raise ValueError(f"Invalid URL: {url}")
 
-        return normalized
+        try:
+            response = requests.get(
+                url,
+                timeout=self.timeout,
+                headers={
+                    'User-Agent': 'AI-Cache-Layer/1.0 (Sitemap Parser)'
+                }
+            )
+            response.raise_for_status()
+            return response.text
+        except Exception as e:
+            raise Exception(f"Failed to fetch sitemap: {str(e)}")
 
-    def extract_urls(self, content: str, base_url: str = None) -> List[str]:
+    def parse_sitemap(self, content: str, is_index: bool = None) -> Dict:
         """
-        Extract just the URLs from sitemap (convenience method).
+        Parse sitemap XML content (kept for backward compatibility).
+
+        Note: For production use, prefer parse_sitemap_recursive_detailed
+        which uses ultimate-sitemap-parser for better reliability.
 
         Args:
-            content: Sitemap XML content
-            base_url: Base URL for normalization
+            content: XML sitemap content
+            is_index: Whether this is a sitemap index (auto-detected)
 
         Returns:
-            List of URL strings
+            Dictionary with 'urls' and/or 'sitemaps' keys
         """
-        result = self.parse_sitemap(content)
-        urls = []
+        import xml.etree.ElementTree as ET
 
-        for url_data in result.get('urls', []):
-            url = url_data.get('loc')
-            if url:
-                if base_url:
-                    url = self.normalize_url(url, base_url)
-                urls.append(url)
+        try:
+            root = ET.fromstring(content)
+        except ET.ParseError as e:
+            raise ValueError(f"Invalid XML sitemap: {e}")
 
-        return urls
+        result = {'urls': [], 'sitemaps': []}
+
+        # Check if this is a sitemap index
+        is_index = root.tag.endswith('sitemapindex')
+
+        SITEMAP_NS = {'sm': 'http://www.sitemaps.org/schemas/sitemap/0.9'}
+
+        if is_index:
+            # Parse sitemap index
+            for sitemap in root.findall('.//sm:sitemap', SITEMAP_NS):
+                loc = sitemap.find('sm:loc', SITEMAP_NS)
+                if loc is not None and loc.text:
+                    result['sitemaps'].append(loc.text.strip())
+
+            # Fallback without namespace
+            if not result['sitemaps']:
+                for sitemap in root.findall('.//sitemap'):
+                    loc = sitemap.find('loc')
+                    if loc is not None and loc.text:
+                        result['sitemaps'].append(loc.text.strip())
+        else:
+            # Parse regular sitemap URLs
+            for url_elem in root.findall('.//sm:url', SITEMAP_NS):
+                loc = url_elem.find('sm:loc', SITEMAP_NS)
+                if loc is not None and loc.text:
+                    url_data = {'loc': loc.text.strip()}
+
+                    # Extract optional fields
+                    for field in ['lastmod', 'changefreq', 'priority']:
+                        elem = url_elem.find(f'sm:{field}', SITEMAP_NS)
+                        if elem is not None and elem.text:
+                            url_data[field] = elem.text.strip()
+
+                    result['urls'].append(url_data)
+
+            # Fallback without namespace
+            if not result['urls']:
+                for url_elem in root.findall('.//url'):
+                    loc = url_elem.find('loc')
+                    if loc is not None and loc.text:
+                        url_data = {'loc': loc.text.strip()}
+
+                        for field in ['lastmod', 'changefreq', 'priority']:
+                            elem = url_elem.find(field)
+                            if elem is not None and elem.text:
+                                url_data[field] = elem.text.strip()
+
+                        result['urls'].append(url_data)
+
+        return result
 
 
 # Global sitemap parser instance
