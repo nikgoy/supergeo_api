@@ -25,10 +25,14 @@ def import_sitemap():
     """
     Import URLs from a sitemap into the database.
 
+    Accepts both direct sitemap URLs and domain/homepage URLs:
+    - Direct sitemap: "https://example.com/sitemap.xml"
+    - Domain/homepage: "https://example.com" (auto-discovers sitemap)
+
     Request body:
         {
             "client_id": "uuid",              // Required: Client UUID
-            "sitemap_url": "https://...",     // Required: Sitemap URL
+            "sitemap_url": "https://...",     // Required: Sitemap URL or domain
             "recursive": true,                // Optional: Follow sitemap indices (default: true)
             "max_depth": 3,                   // Optional: Max recursion depth (default: 3)
             "create_pages": true,             // Optional: Create Page entries (default: true)
@@ -38,7 +42,8 @@ def import_sitemap():
     Returns:
         JSON response with import summary
 
-    Example:
+    Examples:
+        # Using direct sitemap URL
         POST /api/v1/sitemap/import
         Headers:
             X-API-Key: your-master-api-key
@@ -48,6 +53,14 @@ def import_sitemap():
         {
             "client_id": "123e4567-e89b-12d3-a456-426614174000",
             "sitemap_url": "https://example.com/sitemap.xml",
+            "recursive": true
+        }
+
+        # Using domain (auto-discovers sitemap)
+        Body:
+        {
+            "client_id": "123e4567-e89b-12d3-a456-426614174000",
+            "sitemap_url": "https://example.com",
             "recursive": true
         }
 
@@ -213,9 +226,13 @@ def parse_sitemap():
 
     Useful for previewing what URLs would be imported.
 
+    Accepts both direct sitemap URLs and domain/homepage URLs:
+    - Direct sitemap: "https://example.com/sitemap.xml"
+    - Domain/homepage: "https://example.com" (auto-discovers sitemap)
+
     Request body:
         {
-            "sitemap_url": "https://...",  // Required: Sitemap URL
+            "sitemap_url": "https://...",  // Required: Sitemap URL or domain
             "recursive": true,             // Optional: Follow sitemap indices
             "max_depth": 3                 // Optional: Max recursion depth
         }
@@ -223,7 +240,8 @@ def parse_sitemap():
     Returns:
         JSON response with parsed URLs
 
-    Example:
+    Examples:
+        # Using direct sitemap URL
         POST /api/v1/sitemap/parse
         Headers:
             X-API-Key: your-master-api-key
@@ -232,6 +250,12 @@ def parse_sitemap():
         Body:
         {
             "sitemap_url": "https://example.com/sitemap.xml"
+        }
+
+        # Using domain (auto-discovers sitemap)
+        Body:
+        {
+            "sitemap_url": "https://example.com"
         }
 
         Response:

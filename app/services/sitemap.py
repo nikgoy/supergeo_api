@@ -3,12 +3,13 @@ Sitemap parsing service.
 
 Parses XML sitemaps and extracts URLs for caching using ultimate-sitemap-parser library.
 Supports both regular sitemaps and sitemap index files with robust error handling.
+Can accept either direct sitemap URLs or domain/homepage URLs.
 """
 from typing import List, Dict
 from urllib.parse import urlparse
-import time
 
 from usp.fetch_parse import SitemapFetcher
+from usp.tree import sitemap_tree_for_homepage
 
 from app.config import settings
 
@@ -27,14 +28,37 @@ class SitemapParser:
         self.timeout = timeout
         self.max_urls = max_urls
 
-    def parse_sitemap_recursive(self, url: str, max_depth: int = 3, track_errors: bool = False) -> List[Dict]:
+    def _is_sitemap_url(self, url: str) -> bool:
+        """
+        Detect if URL is a direct sitemap URL or a domain/homepage URL.
+
+        Args:
+            url: URL to check
+
+        Returns:
+            True if direct sitemap URL, False if domain/homepage URL
+        """
+        url_lower = url.lower()
+
+        # Check if it's a direct sitemap file
+        if url_lower.endswith('.xml') or url_lower.endswith('.xml.gz'):
+            return True
+
+        # Check if path contains 'sitemap'
+        parsed = urlparse(url)
+        if 'sitemap' in parsed.path.lower():
+            return True
+
+        # Otherwise, assume it's a domain/homepage
+        return False
+
+    def parse_sitemap_recursive(self, url: str, max_depth: int = 3) -> List[Dict]:
         """
         Parse sitemap recursively, following sitemap index references.
 
         Args:
-            url: Sitemap URL (can be index or regular)
+            url: Sitemap URL or domain URL (auto-discovers sitemap)
             max_depth: Maximum recursion depth (Note: usp handles this internally)
-            track_errors: If True, collect error information (use parse_sitemap_recursive_detailed instead)
 
         Returns:
             List of all URLs found
@@ -49,8 +73,12 @@ class SitemapParser:
         """
         Parse sitemap recursively with detailed error tracking using ultimate-sitemap-parser.
 
+        Supports both direct sitemap URLs and domain/homepage URLs:
+        - Direct sitemap URL: https://example.com/sitemap.xml
+        - Domain/homepage URL: https://example.com (auto-discovers sitemap via robots.txt)
+
         Args:
-            url: Sitemap URL (can be index or regular)
+            url: Sitemap URL or domain/homepage URL
             max_depth: Maximum recursion depth (Note: usp library handles depth internally)
 
         Returns:
@@ -71,15 +99,20 @@ class SitemapParser:
             if not parsed.scheme or not parsed.netloc:
                 raise ValueError(f"Invalid URL: {url}")
 
-            # Use SitemapFetcher directly with the sitemap URL
-            # This is more direct than sitemap_tree_for_homepage() which expects homepage URLs
-            # It handles: retries, gzip compression, relative URLs, namespaces, etc.
-            print(f"[Sitemap] Fetching sitemap at recursion level 0")
-            fetcher = SitemapFetcher(url, recursion_level=0)
-            tree = fetcher.sitemap()
+            # Detect if this is a direct sitemap URL or a domain/homepage URL
+            is_sitemap_url = self._is_sitemap_url(url)
 
-            # Track which sitemaps were visited
-            visited_sitemaps.add(url)
+            if is_sitemap_url:
+                # Direct sitemap URL - use SitemapFetcher
+                print(f"[Sitemap] Detected direct sitemap URL, using SitemapFetcher")
+                fetcher = SitemapFetcher(url, recursion_level=0)
+                tree = fetcher.sitemap()
+                visited_sitemaps.add(url)
+            else:
+                # Domain/homepage URL - use sitemap_tree_for_homepage
+                # This auto-discovers sitemaps via robots.txt and common locations
+                print(f"[Sitemap] Detected domain/homepage URL, auto-discovering sitemaps")
+                tree = sitemap_tree_for_homepage(url)
 
             # Recursively collect all sitemaps in the tree
             def collect_sitemaps(sitemap, depth=0):
