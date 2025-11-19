@@ -11,13 +11,51 @@ from uuid import uuid4
 
 from sqlalchemy import (
     Boolean, Column, DateTime, ForeignKey, Integer,
-    LargeBinary, String, Text, UniqueConstraint, text
+    LargeBinary, String, Text, UniqueConstraint, text, TypeDecorator, func
 )
-from sqlalchemy.dialects.postgresql import UUID
+from sqlalchemy.dialects.postgresql import UUID as PostgreSQLUUID
 from sqlalchemy.orm import relationship
+from sqlalchemy.types import CHAR
 
 from app.models.base import Base
 from app.services.encryption import encryption_service
+
+
+class GUID(TypeDecorator):
+    """
+    Platform-independent GUID type.
+
+    Uses PostgreSQL's UUID type, otherwise uses CHAR(36), storing as stringified hex values.
+    """
+    impl = CHAR
+    cache_ok = True
+
+    def load_dialect_impl(self, dialect):
+        if dialect.name == 'postgresql':
+            return dialect.type_descriptor(PostgreSQLUUID(as_uuid=True))
+        else:
+            return dialect.type_descriptor(CHAR(36))
+
+    def process_bind_param(self, value, dialect):
+        if value is None:
+            return value
+        elif dialect.name == 'postgresql':
+            return value
+        else:
+            if not isinstance(value, uuid4.__class__):
+                return str(value)
+            else:
+                return str(value)
+
+    def process_result_value(self, value, dialect):
+        if value is None:
+            return value
+        else:
+            if not isinstance(value, uuid4.__class__):
+                import uuid
+                return uuid.UUID(value)
+            else:
+                return value
 
 
 class Client(Base):
@@ -30,7 +68,7 @@ class Client(Base):
 
     __tablename__ = "clients"
 
-    id = Column(UUID(as_uuid=True), primary_key=True, default=uuid4)
+    id = Column(GUID, primary_key=True, default=uuid4)
     name = Column(Text, unique=True, nullable=False, index=True)
     domain = Column(Text, unique=True, nullable=False, index=True)
 
@@ -44,8 +82,8 @@ class Client(Base):
 
     is_active = Column(Boolean, default=True, nullable=False)
 
-    created_at = Column(DateTime, nullable=False, server_default=text("now()"))
-    updated_at = Column(DateTime, nullable=False, server_default=text("now()"), onupdate=datetime.utcnow)
+    created_at = Column(DateTime, nullable=False, server_default=func.now())
+    updated_at = Column(DateTime, nullable=False, server_default=func.now(), onupdate=datetime.utcnow)
 
     # Relationships
     pages = relationship("Page", back_populates="client", cascade="all, delete-orphan")
@@ -131,8 +169,8 @@ class Page(Base):
         UniqueConstraint("client_id", "url", name="uq_client_url"),
     )
 
-    id = Column(UUID(as_uuid=True), primary_key=True, default=uuid4)
-    client_id = Column(UUID(as_uuid=True), ForeignKey("clients.id", ondelete="CASCADE"), nullable=False)
+    id = Column(GUID, primary_key=True, default=uuid4)
+    client_id = Column(GUID, ForeignKey("clients.id", ondelete="CASCADE"), nullable=False)
 
     url = Column(Text, nullable=False, index=True)
     url_hash = Column(Text, nullable=False, index=True)  # SHA-256 of normalized URL
@@ -152,12 +190,12 @@ class Page(Base):
     kv_key = Column(Text, nullable=True)  # e.g., "https/example-com/page"
     version = Column(Integer, default=1, nullable=False)
 
-    created_at = Column(DateTime, nullable=False, server_default=text("now()"))
-    updated_at = Column(DateTime, nullable=False, server_default=text("now()"), onupdate=datetime.utcnow)
+    created_at = Column(DateTime, nullable=False, server_default=func.now())
+    updated_at = Column(DateTime, nullable=False, server_default=func.now(), onupdate=datetime.utcnow)
 
     # Relationships
     client = relationship("Client", back_populates="pages")
-    visits = relationship("Visit", back_populates="page", cascade="all, delete-orphan")
+    visits = relationship("Visit", back_populates="page")
 
     def __repr__(self) -> str:
         return f"<Page {self.url}>"
@@ -236,9 +274,9 @@ class Visit(Base):
 
     __tablename__ = "visits"
 
-    id = Column(UUID(as_uuid=True), primary_key=True, default=uuid4)
-    page_id = Column(UUID(as_uuid=True), ForeignKey("pages.id", ondelete="SET NULL"), nullable=True)
-    client_id = Column(UUID(as_uuid=True), ForeignKey("clients.id", ondelete="CASCADE"), nullable=False)
+    id = Column(GUID, primary_key=True, default=uuid4)
+    page_id = Column(GUID, ForeignKey("pages.id", ondelete="SET NULL"), nullable=True)
+    client_id = Column(GUID, ForeignKey("clients.id", ondelete="CASCADE"), nullable=False)
 
     url = Column(Text, nullable=False)
     visitor_type = Column(String(50), nullable=True)  # 'ai_bot', 'direct', 'worker_proxy'
@@ -247,7 +285,7 @@ class Visit(Base):
     referrer = Column(Text, nullable=True)
     bot_name = Column(Text, nullable=True)  # e.g., 'GPTBot', 'ClaudeBot', 'Googlebot'
 
-    visited_at = Column(DateTime, nullable=False, server_default=text("now()"))
+    visited_at = Column(DateTime, nullable=False, server_default=func.now())
 
     # Relationships
     client = relationship("Client", back_populates="visits")

@@ -13,12 +13,27 @@ Comprehensive testing guide for the AI Cache Layer project.
 
 ## Quick Start
 
+### Prerequisites
+
+- Python 3.11 or higher
+- Virtual environment (recommended)
+
 ### Install Test Dependencies
 
 ```bash
-# Install development dependencies (includes testing tools)
+# Create virtual environment (recommended)
+python3 -m venv venv
+source venv/bin/activate  # On Windows: venv\Scripts\activate
+
+# Quick install (recommended) - installs only essentials
+pip install -r requirements.txt
+pip install pytest pytest-cov pytest-flask pytest-mock cffi
+
+# OR: Full install (slower, includes code quality tools)
 pip install -r requirements-dev.txt
 ```
+
+**Note:** The quick install method is much faster and sufficient for running tests. Full install includes optional code quality tools (black, flake8, mypy, isort) which can be installed separately if needed.
 
 ### Run All Tests
 
@@ -26,7 +41,7 @@ pip install -r requirements-dev.txt
 # Using pytest directly
 pytest
 
-# Using make
+# Using make (if available)
 make test
 ```
 
@@ -450,6 +465,26 @@ Install pytest-cov:
 pip install pytest-cov
 ```
 
+### Dependency Conflicts
+
+If you encounter errors related to `urllib3` version conflicts:
+
+```bash
+# The requirements-dev.txt has been updated to handle this
+# types-requests is now commented out as it's optional for testing
+pip install -r requirements-dev.txt --force-reinstall
+```
+
+### Database Compatibility Issues
+
+The codebase has been updated to support both PostgreSQL (production) and SQLite (testing):
+
+- **UUID Type**: A custom `GUID` type decorator handles UUID columns across both databases
+- **Timestamps**: Using `func.now()` instead of `text("now()")` for better cross-database compatibility
+- **Connection Pooling**: SQLite doesn't use `pool_size` and `max_overflow` parameters
+
+These changes ensure tests run smoothly locally with SQLite while maintaining PostgreSQL compatibility for production.
+
 ## Best Practices
 
 1. **Isolation**: Each test should be independent
@@ -459,6 +494,16 @@ pip install pytest-cov
 5. **Test Edge Cases**: Test both happy path and error cases
 6. **Keep Tests Fast**: Use mocks for external services
 7. **Arrange-Act-Assert**: Follow AAA pattern
+
+## Recent Updates
+
+### November 2025
+
+- Fixed dependency conflict between `types-requests` and `urllib3`
+- Added cross-database UUID support via custom `GUID` type
+- Updated timestamp defaults to use `func.now()` for better compatibility
+- Enhanced SQLite support for local testing
+- Added `cffi` as explicit dependency for cryptography support
 
 ## Resources
 

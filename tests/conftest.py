@@ -29,13 +29,12 @@ def app():
     Yields:
         Flask app configured for testing
     """
+    # Create app - it will initialize the database using DATABASE_URL env var
+    # (set to sqlite:///:memory: on line 13 above)
     app = create_app({
         'TESTING': True,
         'DEBUG': False
     })
-
-    # Initialize in-memory SQLite database for tests
-    init_db('sqlite:///:memory:')
 
     yield app
 
