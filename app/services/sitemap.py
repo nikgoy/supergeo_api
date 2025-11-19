@@ -252,7 +252,9 @@ class SitemapParser:
                 # Recursively parse nested sitemaps
                 if result.get('sitemaps'):
                     for nested_url in result['sitemaps']:
-                        _parse_recursive(nested_url, depth + 1)
+                        # Resolve relative URLs to absolute URLs
+                        absolute_nested_url = self.normalize_url(nested_url, base_url=sitemap_url)
+                        _parse_recursive(absolute_nested_url, depth + 1)
 
             except Exception as e:
                 # Log error but continue with other sitemaps
