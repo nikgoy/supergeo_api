@@ -31,18 +31,13 @@ if config.config_file_name is not None:
     fileConfig(config.config_file_name)
 
 # Set the SQLAlchemy URL from settings
-# Priority: DATABASE_URL env var, then constructed from SUPABASE_URL
-database_url = os.getenv("DATABASE_URL")
-if not database_url:
-    try:
-        database_url = settings.get_database_url()
-    except Exception as e:
-        print(f"Warning: Could not get database URL from settings: {e}")
-        print("Please set DATABASE_URL environment variable")
-        database_url = None
-
-if database_url:
+# Uses DATABASE_URL from environment (Neon PostgreSQL)
+try:
+    database_url = settings.get_database_url()
     config.set_main_option("sqlalchemy.url", database_url)
+except Exception as e:
+    print(f"Warning: Could not get database URL from settings: {e}")
+    print("Please set DATABASE_URL environment variable")
 
 # add your model's MetaData object here
 # for 'autogenerate' support

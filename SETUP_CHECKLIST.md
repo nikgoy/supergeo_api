@@ -5,17 +5,15 @@ Use this checklist to ensure you've completed all setup steps correctly.
 ## Prerequisites
 
 - [ ] Python 3.11+ installed
-- [ ] Supabase account created
+- [ ] Neon account created
 - [ ] Google Gemini API key obtained
 - [ ] Cloudflare account (for each client you'll add)
 
-## Supabase Setup
+## Neon Setup
 
-- [ ] Created new Supabase project
+- [ ] Created new Neon project
 - [ ] Database is fully provisioned
-- [ ] Copied Project URL from API Settings
-- [ ] Copied Service Role Key from API Settings
-- [ ] Copied Database Connection String from Database Settings
+- [ ] Copied Connection String from Dashboard → Connection Details
 - [ ] Enabled pgcrypto extension (`CREATE EXTENSION IF NOT EXISTS "pgcrypto";`)
 
 ## Local Setup
@@ -28,8 +26,7 @@ Use this checklist to ensure you've completed all setup steps correctly.
 
 ## Environment Configuration
 
-- [ ] Set `DATABASE_URL` with correct Supabase connection string
-- [ ] Set `SUPABASE_URL` and `SUPABASE_KEY`
+- [ ] Set `DATABASE_URL` with correct Neon connection string
 - [ ] Set `GEMINI_API_KEY`
 - [ ] Generated and set `FERNET_KEY` (run `python scripts/generate_key.py`)
 - [ ] Generated and set `MASTER_API_KEY`
@@ -39,7 +36,7 @@ Use this checklist to ensure you've completed all setup steps correctly.
 ## Database Migration
 
 - [ ] Ran `alembic upgrade head` successfully
-- [ ] Verified tables created in Supabase dashboard
+- [ ] Verified tables created in Neon SQL Editor
 - [ ] Tables visible: `clients`, `pages`, `visits`
 
 ## First Client

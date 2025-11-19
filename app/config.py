@@ -24,9 +24,7 @@ class Settings(BaseSettings):
     debug: bool = Field(default=False, description="Debug mode")
 
     # Database settings
-    supabase_url: str = Field(..., description="Supabase project URL")
-    supabase_key: str = Field(..., description="Supabase service role key")
-    database_url: Optional[str] = Field(None, description="Direct PostgreSQL connection URL (optional)")
+    database_url: str = Field(..., description="PostgreSQL connection URL (Neon)")
 
     # API Keys
     gemini_api_key: str = Field(..., description="Google Gemini API key (global fallback)")
@@ -72,24 +70,9 @@ class Settings(BaseSettings):
         """
         Get the database URL for SQLAlchemy.
 
-        If DATABASE_URL is provided, use it. Otherwise construct from Supabase URL.
-        Supabase URL format: https://<project-ref>.supabase.co
-        Database URL: postgresql://postgres:[password]@db.<project-ref>.supabase.co:5432/postgres
+        Returns the Neon PostgreSQL connection URL.
         """
-        if self.database_url:
-            return self.database_url
-
-        # Extract project reference from Supabase URL
-        # Format: https://<project-ref>.supabase.co
-        import re
-        match = re.search(r'https://([^.]+)\.supabase\.co', self.supabase_url)
-        if not match:
-            raise ValueError("Cannot parse Supabase URL")
-
-        project_ref = match.group(1)
-        # Note: In production, the password should be provided via DATABASE_URL
-        # This is a fallback that requires the supabase_key to be the database password
-        return f"postgresql://postgres.{project_ref}:[your-db-password]@aws-0-us-west-1.pooler.supabase.com:6543/postgres"
+        return self.database_url
 
 
 # Global settings instance
