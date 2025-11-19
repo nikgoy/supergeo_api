@@ -195,7 +195,7 @@ class Page(Base):
 
     # Relationships
     client = relationship("Client", back_populates="pages")
-    visits = relationship("Visit", back_populates="page", cascade="all, delete-orphan")
+    visits = relationship("Visit", back_populates="page")
 
     def __repr__(self) -> str:
         return f"<Page {self.url}>"
