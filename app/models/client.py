@@ -10,7 +10,7 @@ from typing import Optional
 from uuid import uuid4
 
 from sqlalchemy import (
-    Boolean, Column, DateTime, ForeignKey, Integer,
+    Boolean, Column, DateTime, ForeignKey, Integer, Float,
     LargeBinary, String, Text, UniqueConstraint, text, TypeDecorator, func
 )
 from sqlalchemy.dialects.postgresql import UUID as PostgreSQLUUID
@@ -88,6 +88,7 @@ class Client(Base):
     # Relationships
     pages = relationship("Page", back_populates="client", cascade="all, delete-orphan")
     visits = relationship("Visit", back_populates="client", cascade="all, delete-orphan")
+    page_analytics = relationship("PageAnalytics", back_populates="client", uselist=False, cascade="all, delete-orphan")
 
     def __repr__(self) -> str:
         return f"<Client {self.name} ({self.domain})>"
@@ -325,4 +326,75 @@ class Visit(Base):
             "referrer": self.referrer,
             "bot_name": self.bot_name,
             "visited_at": self.visited_at.isoformat() if self.visited_at else None,
+        }
+
+
+class PageAnalytics(Base):
+    """
+    Page analytics for tracking pipeline progress.
+
+    Stores aggregated metrics about pages for each client:
+    - Total URLs and processing stage completion counts
+    - Completion rates for each pipeline stage
+    - Recent update statistics
+    """
+
+    __tablename__ = "page_analytics"
+    __table_args__ = (
+        UniqueConstraint("client_id", name="uq_page_analytics_client_id"),
+    )
+
+    id = Column(GUID, primary_key=True, default=uuid4)
+    client_id = Column(GUID, ForeignKey("clients.id", ondelete="CASCADE"), nullable=False, index=True)
+
+    # Raw counts
+    total_urls = Column(Integer, nullable=False, default=0)
+    urls_with_raw_html = Column(Integer, nullable=False, default=0)
+    urls_with_markdown = Column(Integer, nullable=False, default=0)
+    urls_with_simple_html = Column(Integer, nullable=False, default=0)
+    urls_with_kv_key = Column(Integer, nullable=False, default=0)
+
+    # Completion rates (0.0 to 100.0)
+    html_completion_rate = Column(Float, nullable=False, default=0.0)
+    markdown_completion_rate = Column(Float, nullable=False, default=0.0)
+    simple_html_completion_rate = Column(Float, nullable=False, default=0.0)
+    kv_upload_completion_rate = Column(Float, nullable=False, default=0.0)
+
+    # Recent activity
+    pages_updated_last_30_days = Column(Integer, nullable=False, default=0)
+
+    # Metadata
+    last_calculated_at = Column(DateTime, nullable=True, index=True)
+    created_at = Column(DateTime, nullable=False, server_default=func.now())
+    updated_at = Column(DateTime, nullable=False, server_default=func.now(), onupdate=datetime.utcnow)
+
+    # Relationships
+    client = relationship("Client", back_populates="page_analytics")
+
+    def __repr__(self) -> str:
+        return f"<PageAnalytics client_id={self.client_id} total={self.total_urls}>"
+
+    def to_dict(self) -> dict:
+        """
+        Convert page analytics to dictionary.
+
+        Returns:
+            Dictionary representation
+        """
+        return {
+            "id": str(self.id),
+            "client_id": str(self.client_id),
+            "total_urls": self.total_urls,
+            "urls_with_raw_html": self.urls_with_raw_html,
+            "urls_with_markdown": self.urls_with_markdown,
+            "urls_with_simple_html": self.urls_with_simple_html,
+            "urls_with_kv_key": self.urls_with_kv_key,
+            "html_completion_rate": round(self.html_completion_rate, 2),
+            "markdown_completion_rate": round(self.markdown_completion_rate, 2),
+            "simple_html_completion_rate": round(self.simple_html_completion_rate, 2),
+            "kv_upload_completion_rate": round(self.kv_upload_completion_rate, 2),
+            "pages_updated_last_30_days": self.pages_updated_last_30_days,
+            "last_calculated_at": self.last_calculated_at.isoformat() if self.last_calculated_at else None,
+            "created_at": self.created_at.isoformat() if self.created_at else None,
+            "updated_at": self.updated_at.isoformat() if self.updated_at else None,
         }

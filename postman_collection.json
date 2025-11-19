@@ -466,6 +466,133 @@
 				}
 			],
 			"description": "Sitemap import and page management endpoints. All require API key authentication."
+		},
+		{
+			"name": "Page Analytics",
+			"item": [
+				{
+					"name": "Get Analytics for Client",
+					"request": {
+						"method": "GET",
+						"header": [
+							{
+								"key": "X-API-Key",
+								"value": "{{api_key}}",
+								"type": "text"
+							}
+						],
+						"url": {
+							"raw": "{{base_url}}/api/v1/pages_analytics/client/{{client_id}}",
+							"host": [
+								"{{base_url}}"
+							],
+							"path": [
+								"api",
+								"v1",
+								"pages_analytics",
+								"client",
+								"{{client_id}}"
+							]
+						},
+						"description": "Get page analytics for a specific client. Returns metrics about pipeline progress including total URLs, completion counts for each stage (raw HTML, markdown, simple HTML, KV upload), completion rates, and recent activity."
+					},
+					"response": []
+				},
+				{
+					"name": "Calculate Analytics for Client",
+					"request": {
+						"method": "POST",
+						"header": [
+							{
+								"key": "X-API-Key",
+								"value": "{{api_key}}",
+								"type": "text"
+							}
+						],
+						"url": {
+							"raw": "{{base_url}}/api/v1/pages_analytics/calculate/{{client_id}}",
+							"host": [
+								"{{base_url}}"
+							],
+							"path": [
+								"api",
+								"v1",
+								"pages_analytics",
+								"calculate",
+								"{{client_id}}"
+							]
+						},
+						"description": "Trigger analytics calculation for a specific client. This calculates fresh metrics from the pages table and updates the analytics record. Use this endpoint to refresh analytics data on-demand."
+					},
+					"response": []
+				},
+				{
+					"name": "Get All Analytics",
+					"request": {
+						"method": "GET",
+						"header": [
+							{
+								"key": "X-API-Key",
+								"value": "{{api_key}}",
+								"type": "text"
+							}
+						],
+						"url": {
+							"raw": "{{base_url}}/api/v1/pages_analytics?limit=100&offset=0",
+							"host": [
+								"{{base_url}}"
+							],
+							"path": [
+								"api",
+								"v1",
+								"pages_analytics"
+							],
+							"query": [
+								{
+									"key": "limit",
+									"value": "100",
+									"description": "Max results to return (default: 100, max: 1000)"
+								},
+								{
+									"key": "offset",
+									"value": "0",
+									"description": "Number of results to skip (default: 0)"
+								}
+							]
+						},
+						"description": "Get page analytics for all clients with pagination. Returns an array of analytics objects sorted by last_calculated_at descending."
+					},
+					"response": []
+				},
+				{
+					"name": "Calculate Analytics for All Clients",
+					"request": {
+						"method": "POST",
+						"header": [
+							{
+								"key": "X-API-Key",
+								"value": "{{api_key}}",
+								"type": "text"
+							}
+						],
+						"url": {
+							"raw": "{{base_url}}/api/v1/pages_analytics/calculate-all",
+							"host": [
+								"{{base_url}}"
+							],
+							"path": [
+								"api",
+								"v1",
+								"pages_analytics",
+								"calculate-all"
+							]
+						},
+						"description": "Trigger analytics calculation for all active clients. This calculates fresh metrics for all clients and updates their analytics records. Use this for bulk recalculation."
+					},
+					"response": []
+				}
+			],
+			"description": "Page analytics endpoints for tracking pipeline progress. Monitor how many pages have completed each processing stage (raw HTML → markdown → simple HTML → KV upload). All endpoints require API key authentication."
 		}
 	]
 }
