@@ -1,6 +1,9 @@
 # Production dependencies
 -r requirements.txt
 
+# Cryptography dependencies (required for tests)
+cffi==2.0.0
+
 # Testing
 pytest==7.4.3
 pytest-cov==4.1.0
@@ -17,5 +20,7 @@ flake8==6.1.0
 isort==5.13.2
 mypy==1.7.1
 
-# Type stubs
-types-requests==2.31.0.20231231
+# Type stubs (optional for type checking)
+# Note: types-requests requires urllib3>=2 which conflicts with production requirement
+# Uncomment if you need type checking and are okay with newer urllib3
+# types-requests==2.31.0.20231231
