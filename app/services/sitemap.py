@@ -9,6 +9,7 @@ from typing import List, Dict, Optional
 from datetime import datetime
 import requests
 from urllib.parse import urljoin, urlparse
+import time
 
 from app.config import settings
 
@@ -35,18 +36,19 @@ class SitemapParser:
         self.timeout = timeout
         self.max_urls = max_urls
 
-    def fetch_sitemap(self, url: str) -> str:
+    def fetch_sitemap(self, url: str, max_retries: int = 3) -> str:
         """
-        Fetch sitemap content from URL.
+        Fetch sitemap content from URL with retry logic.
 
         Args:
             url: Sitemap URL
+            max_retries: Maximum number of retries for transient errors
 
         Returns:
             Sitemap XML content as string
 
         Raises:
-            requests.RequestException: If fetch fails
+            requests.RequestException: If fetch fails after retries
             ValueError: If URL is invalid
         """
         # Validate URL
@@ -54,17 +56,45 @@ class SitemapParser:
         if not parsed.scheme or not parsed.netloc:
             raise ValueError(f"Invalid URL: {url}")
 
-        # Fetch with timeout
-        response = requests.get(
-            url,
-            timeout=self.timeout,
-            headers={
-                'User-Agent': 'AI-Cache-Layer/1.0 (Sitemap Parser)'
-            }
-        )
-        response.raise_for_status()
+        last_exception = None
 
-        return response.text
+        for attempt in range(max_retries):
+            try:
+                # Fetch with timeout
+                response = requests.get(
+                    url,
+                    timeout=self.timeout,
+                    headers={
+                        'User-Agent': 'AI-Cache-Layer/1.0 (Sitemap Parser)'
+                    }
+                )
+                response.raise_for_status()
+                return response.text
+
+            except requests.exceptions.HTTPError as e:
+                # Retry on 5xx errors and 429 (rate limit)
+                if e.response is not None and e.response.status_code in [429, 500, 502, 503, 504]:
+                    last_exception = e
+                    if attempt < max_retries - 1:
+                        wait_time = 2 ** attempt  # Exponential backoff: 1s, 2s, 4s
+                        print(f"[Sitemap] HTTP {e.response.status_code} for {url}, retrying in {wait_time}s (attempt {attempt + 1}/{max_retries})")
+                        time.sleep(wait_time)
+                        continue
+                # Don't retry on 4xx errors (except 429)
+                raise
+
+            except (requests.exceptions.Timeout, requests.exceptions.ConnectionError) as e:
+                # Retry on network errors
+                last_exception = e
+                if attempt < max_retries - 1:
+                    wait_time = 2 ** attempt
+                    print(f"[Sitemap] Network error for {url}, retrying in {wait_time}s (attempt {attempt + 1}/{max_retries})")
+                    time.sleep(wait_time)
+                    continue
+                raise
+
+        # If we get here, all retries failed
+        raise last_exception
 
     def parse_sitemap(self, content: str, is_index: bool = None) -> Dict[str, List[Dict]]:
         """
