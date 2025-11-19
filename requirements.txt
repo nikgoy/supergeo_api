@@ -20,6 +20,7 @@ google-generativeai==0.3.1
 
 # HTTP requests
 requests==2.31.0
+urllib3<2.0.0  # Pin to v1.x for compatibility with older OpenSSL/LibreSSL versions
 
 # Production server
 gunicorn==21.2.0
