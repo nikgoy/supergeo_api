@@ -5,7 +5,7 @@ Provides simple API key authentication via X-API-Key header.
 For production, consider using more robust authentication (OAuth2, JWT, etc.).
 """
 from functools import wraps
-from typing import Callable
+from typing import Callable, Optional, Tuple
 
 from flask import request, jsonify
 
@@ -72,7 +72,7 @@ def get_client_ip() -> str:
     return request.remote_addr or 'unknown'
 
 
-def detect_bot(user_agent: str) -> tuple[bool, str | None]:
+def detect_bot(user_agent: str) -> Tuple[bool, Optional[str]]:
     """
     Detect if user agent is a known AI bot.
 
