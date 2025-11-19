@@ -8,7 +8,7 @@ from typing import List, Dict
 from urllib.parse import urlparse
 import time
 
-from usp.tree import sitemap_tree_for_homepage
+from usp.fetch_parse import SitemapFetcher
 
 from app.config import settings
 
@@ -71,12 +71,27 @@ class SitemapParser:
             if not parsed.scheme or not parsed.netloc:
                 raise ValueError(f"Invalid URL: {url}")
 
-            # Use ultimate-sitemap-parser to fetch and parse recursively
+            # Use SitemapFetcher directly with the sitemap URL
+            # This is more direct than sitemap_tree_for_homepage() which expects homepage URLs
             # It handles: retries, gzip compression, relative URLs, namespaces, etc.
-            tree = sitemap_tree_for_homepage(url)
+            print(f"[Sitemap] Fetching sitemap at recursion level 0")
+            fetcher = SitemapFetcher(url, recursion_level=0)
+            tree = fetcher.sitemap()
 
             # Track which sitemaps were visited
             visited_sitemaps.add(url)
+
+            # Recursively collect all sitemaps in the tree
+            def collect_sitemaps(sitemap, depth=0):
+                """Recursively collect all sitemap URLs from the tree"""
+                if hasattr(sitemap, 'url') and sitemap.url:
+                    visited_sitemaps.add(sitemap.url)
+
+                if hasattr(sitemap, 'sub_sitemaps') and sitemap.sub_sitemaps:
+                    for sub in sitemap.sub_sitemaps:
+                        collect_sitemaps(sub, depth + 1)
+
+            collect_sitemaps(tree)
 
             # Extract all pages from the tree
             page_count = 0
@@ -105,13 +120,7 @@ class SitemapParser:
                     raise ValueError(error_msg)
 
             print(f"[Sitemap] Successfully parsed {page_count} URLs from sitemap tree")
-
-            # Try to track sub-sitemaps if available (usp doesn't expose this directly)
-            # So we'll estimate based on the structure
-            if hasattr(tree, 'sub_sitemaps') and tree.sub_sitemaps:
-                for sub in tree.sub_sitemaps:
-                    if hasattr(sub, 'url'):
-                        visited_sitemaps.add(sub.url)
+            print(f"[Sitemap] Visited {len(visited_sitemaps)} sitemaps total")
 
         except ValueError as e:
             # Re-raise ValueError (max URLs, invalid URL)
