@@ -210,13 +210,14 @@ class SitemapParser:
 
         return url_data
 
-    def parse_sitemap_recursive(self, url: str, max_depth: int = 3) -> List[Dict]:
+    def parse_sitemap_recursive(self, url: str, max_depth: int = 3, track_errors: bool = False) -> List[Dict]:
         """
         Parse sitemap recursively, following sitemap index references.
 
         Args:
             url: Sitemap URL (can be index or regular)
             max_depth: Maximum recursion depth
+            track_errors: If True, collect error information (use parse_sitemap_recursive_detailed instead)
 
         Returns:
             List of all URLs found
@@ -224,11 +225,34 @@ class SitemapParser:
         Raises:
             ValueError: If max_urls limit is exceeded
         """
+        result = self.parse_sitemap_recursive_detailed(url, max_depth)
+        return result['urls']
+
+    def parse_sitemap_recursive_detailed(self, url: str, max_depth: int = 3) -> Dict:
+        """
+        Parse sitemap recursively with detailed error tracking.
+
+        Args:
+            url: Sitemap URL (can be index or regular)
+            max_depth: Maximum recursion depth
+
+        Returns:
+            Dictionary with 'urls', 'errors', 'visited_sitemaps' keys
+
+        Raises:
+            ValueError: If max_urls limit is exceeded
+        """
         all_urls = []
         visited_sitemaps = set()
+        errors = []
 
         def _parse_recursive(sitemap_url: str, depth: int):
             if depth > max_depth:
+                errors.append({
+                    'url': sitemap_url,
+                    'error': f'Exceeded max depth ({max_depth})',
+                    'depth': depth
+                })
                 return
 
             if sitemap_url in visited_sitemaps:
@@ -238,12 +262,14 @@ class SitemapParser:
 
             # Fetch and parse
             try:
+                print(f"[Sitemap] Fetching: {sitemap_url} (depth {depth})")
                 content = self.fetch_sitemap(sitemap_url)
                 result = self.parse_sitemap(content)
 
                 # Add URLs
                 if result.get('urls'):
                     all_urls.extend(result['urls'])
+                    print(f"[Sitemap] Found {len(result['urls'])} URLs from {sitemap_url}")
 
                     # Check limit
                     if len(all_urls) > self.max_urls:
@@ -251,18 +277,31 @@ class SitemapParser:
 
                 # Recursively parse nested sitemaps
                 if result.get('sitemaps'):
+                    print(f"[Sitemap] Found {len(result['sitemaps'])} child sitemaps in {sitemap_url}")
                     for nested_url in result['sitemaps']:
                         # Resolve relative URLs to absolute URLs
                         absolute_nested_url = self.normalize_url(nested_url, base_url=sitemap_url)
                         _parse_recursive(absolute_nested_url, depth + 1)
 
             except Exception as e:
-                # Log error but continue with other sitemaps
-                print(f"Error parsing sitemap {sitemap_url}: {e}")
+                error_msg = str(e)
+                print(f"[Sitemap] Error parsing {sitemap_url}: {error_msg}")
+                errors.append({
+                    'url': sitemap_url,
+                    'error': error_msg,
+                    'depth': depth
+                })
 
         _parse_recursive(url, 0)
 
-        return all_urls
+        return {
+            'urls': all_urls,
+            'errors': errors,
+            'visited_sitemaps': list(visited_sitemaps),
+            'total_sitemaps': len(visited_sitemaps),
+            'total_urls': len(all_urls),
+            'has_errors': len(errors) > 0
+        }
 
     def normalize_url(self, url: str, base_url: str = None) -> str:
         """

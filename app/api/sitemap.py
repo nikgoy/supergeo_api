@@ -100,9 +100,12 @@ def import_sitemap():
             return jsonify({'error': 'Client not found'}), 404
 
         # Parse sitemap
+        sitemap_errors = []
         try:
             if recursive:
-                urls = sitemap_parser.parse_sitemap_recursive(sitemap_url, max_depth=max_depth)
+                parse_result = sitemap_parser.parse_sitemap_recursive_detailed(sitemap_url, max_depth=max_depth)
+                urls = parse_result['urls']
+                sitemap_errors = parse_result.get('errors', [])
             else:
                 content = sitemap_parser.fetch_sitemap(sitemap_url)
                 result = sitemap_parser.parse_sitemap(content)
@@ -174,7 +177,7 @@ def import_sitemap():
         # Commit all changes
         db.commit()
 
-        return jsonify({
+        response = {
             'message': 'Sitemap imported successfully',
             'summary': summary,
             'client': {
@@ -183,7 +186,14 @@ def import_sitemap():
                 'domain': client.domain
             },
             'sitemap_url': sitemap_url
-        }), 200
+        }
+
+        # Include sitemap parsing errors if any
+        if sitemap_errors:
+            response['sitemap_errors'] = sitemap_errors
+            response['warning'] = f"{len(sitemap_errors)} sitemap(s) failed to parse during import"
+
+        return jsonify(response), 200
 
     except Exception as e:
         db.rollback()
@@ -253,18 +263,35 @@ def parse_sitemap():
     try:
         # Parse sitemap
         if recursive:
-            urls = sitemap_parser.parse_sitemap_recursive(sitemap_url, max_depth=max_depth)
+            result = sitemap_parser.parse_sitemap_recursive_detailed(sitemap_url, max_depth=max_depth)
+            urls = result['urls']
+
+            response = {
+                'sitemap_url': sitemap_url,
+                'total_urls': result['total_urls'],
+                'total_sitemaps': result['total_sitemaps'],
+                'urls': urls[:100],  # Limit response to first 100 for performance
+                'truncated': len(urls) > 100,
+                'visited_sitemaps': result['visited_sitemaps']
+            }
+
+            # Include error information if any errors occurred
+            if result['has_errors']:
+                response['errors'] = result['errors']
+                response['warning'] = f"{len(result['errors'])} sitemap(s) failed to parse"
+
+            return jsonify(response), 200
         else:
             content = sitemap_parser.fetch_sitemap(sitemap_url)
             result = sitemap_parser.parse_sitemap(content)
             urls = result.get('urls', [])
 
-        return jsonify({
-            'sitemap_url': sitemap_url,
-            'total_urls': len(urls),
-            'urls': urls[:100],  # Limit response to first 100 for performance
-            'truncated': len(urls) > 100
-        }), 200
+            return jsonify({
+                'sitemap_url': sitemap_url,
+                'total_urls': len(urls),
+                'urls': urls[:100],
+                'truncated': len(urls) > 100
+            }), 200
 
     except Exception as e:
         return jsonify({
