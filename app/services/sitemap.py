@@ -84,7 +84,7 @@ class SitemapParser:
                 # Convert page object to dictionary format
                 url_data = {'loc': page.url}
 
-                # Add optional metadata if available
+                # Add optional metadata if available (convert to JSON-serializable types)
                 if page.last_modified:
                     url_data['lastmod'] = page.last_modified.isoformat() if hasattr(page.last_modified, 'isoformat') else str(page.last_modified)
 
@@ -92,7 +92,8 @@ class SitemapParser:
                     url_data['priority'] = str(page.priority)
 
                 if page.change_frequency:
-                    url_data['changefreq'] = page.change_frequency
+                    # Convert enum to string (e.g., SitemapPageChangeFrequency.DAILY -> "daily")
+                    url_data['changefreq'] = str(page.change_frequency.value) if hasattr(page.change_frequency, 'value') else str(page.change_frequency)
 
                 all_urls.append(url_data)
                 page_count += 1
