@@ -10,9 +10,9 @@ source venv/bin/activate  # On Windows: venv\Scripts\activate
 pip install -r requirements.txt
 ```
 
-## 2. Set Up Supabase
+## 2. Set Up Neon
 
-Go to [supabase.com](https://supabase.com) and:
+Go to [neon.tech](https://neon.tech) and:
 
 1. Create a new project
 2. Wait for it to provision
@@ -20,9 +20,8 @@ Go to [supabase.com](https://supabase.com) and:
    ```sql
    CREATE EXTENSION IF NOT EXISTS "pgcrypto";
    ```
-4. Get your credentials:
-   - Project Settings → API: Copy Project URL and Service Role Key
-   - Project Settings → Database: Copy Connection String (Session mode)
+4. Get your connection string:
+   - Dashboard → Connection Details: Copy the full connection string
 
 ## 3. Configure Environment
 
@@ -41,9 +40,7 @@ nano .env
 
 Required values in `.env`:
 ```bash
-DATABASE_URL=postgresql://postgres.[project]:[password]@aws-0-us-west-1.pooler.supabase.com:6543/postgres
-SUPABASE_URL=https://your-project.supabase.co
-SUPABASE_KEY=your-service-role-key
+DATABASE_URL=postgresql://[user]:[password]@[endpoint].neon.tech/[dbname]?sslmode=require
 GEMINI_API_KEY=your-gemini-key
 FERNET_KEY=generated-from-script
 MASTER_API_KEY=generated-token
@@ -99,7 +96,7 @@ curl -H "X-API-Key: your-master-api-key" \
 
 **Database connection fails**
 - Verify DATABASE_URL has the correct password
-- Check if Supabase project is running
+- Check if Neon database is running
 - Ensure pgcrypto extension is enabled
 
 **Import errors**

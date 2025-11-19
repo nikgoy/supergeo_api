@@ -1,0 +1,471 @@
+{
+	"info": {
+		"_postman_id": "ai-cache-layer-api",
+		"name": "AI Cache Layer API",
+		"description": "Complete API collection for the AI Cache Layer Flask application. Includes endpoints for health checks, client management, and sitemap operations.\n\n**Authentication**: Most endpoints require an API key passed via the `X-API-Key` header.\n\n**Base URL**: http://localhost:5000\n\n**Environment Variables**:\n- `base_url`: API base URL (default: http://localhost:5000)\n- `api_key`: Your master API key\n- `client_id`: A valid client UUID for testing\n\n**Note**: Remember to update this collection whenever new endpoints are added or existing ones are modified.",
+		"schema": "https://schema.getpostman.com/json/collection/v2.1.0/collection.json"
+	},
+	"variable": [
+		{
+			"key": "base_url",
+			"value": "http://localhost:5000",
+			"type": "string"
+		},
+		{
+			"key": "api_key",
+			"value": "your-master-api-key-here",
+			"type": "string"
+		},
+		{
+			"key": "client_id",
+			"value": "00000000-0000-0000-0000-000000000000",
+			"type": "string"
+		}
+	],
+	"item": [
+		{
+			"name": "Health & Status",
+			"item": [
+				{
+					"name": "Root - API Info",
+					"request": {
+						"method": "GET",
+						"header": [],
+						"url": {
+							"raw": "{{base_url}}/",
+							"host": [
+								"{{base_url}}"
+							],
+							"path": [
+								""
+							]
+						},
+						"description": "Get API information and available endpoints."
+					},
+					"response": []
+				},
+				{
+					"name": "Health Check",
+					"request": {
+						"method": "GET",
+						"header": [],
+						"url": {
+							"raw": "{{base_url}}/health",
+							"host": [
+								"{{base_url}}"
+							],
+							"path": [
+								"health"
+							]
+						},
+						"description": "Check application health status and database connectivity."
+					},
+					"response": []
+				},
+				{
+					"name": "Ping",
+					"request": {
+						"method": "GET",
+						"header": [],
+						"url": {
+							"raw": "{{base_url}}/ping",
+							"host": [
+								"{{base_url}}"
+							],
+							"path": [
+								"ping"
+							]
+						},
+						"description": "Simple ping endpoint to verify the server is responding."
+					},
+					"response": []
+				}
+			],
+			"description": "Health check and status endpoints (no authentication required)."
+		},
+		{
+			"name": "Clients",
+			"item": [
+				{
+					"name": "List All Clients",
+					"request": {
+						"method": "GET",
+						"header": [
+							{
+								"key": "X-API-Key",
+								"value": "{{api_key}}",
+								"type": "text"
+							}
+						],
+						"url": {
+							"raw": "{{base_url}}/api/v1/clients",
+							"host": [
+								"{{base_url}}"
+							],
+							"path": [
+								"api",
+								"v1",
+								"clients"
+							]
+						},
+						"description": "Get a list of all clients (without decrypted secrets)."
+					},
+					"response": []
+				},
+				{
+					"name": "Get Client by ID",
+					"request": {
+						"method": "GET",
+						"header": [
+							{
+								"key": "X-API-Key",
+								"value": "{{api_key}}",
+								"type": "text"
+							}
+						],
+						"url": {
+							"raw": "{{base_url}}/api/v1/clients/{{client_id}}?include_secrets=false",
+							"host": [
+								"{{base_url}}"
+							],
+							"path": [
+								"api",
+								"v1",
+								"clients",
+								"{{client_id}}"
+							],
+							"query": [
+								{
+									"key": "include_secrets",
+									"value": "false",
+									"description": "Set to true to include decrypted secrets (use with caution)"
+								}
+							]
+						},
+						"description": "Get a specific client by UUID. Set `include_secrets=true` to include decrypted API tokens."
+					},
+					"response": []
+				},
+				{
+					"name": "Get Client by Domain",
+					"request": {
+						"method": "GET",
+						"header": [
+							{
+								"key": "X-API-Key",
+								"value": "{{api_key}}",
+								"type": "text"
+							}
+						],
+						"url": {
+							"raw": "{{base_url}}/api/v1/clients/by-domain/example.com?include_secrets=false",
+							"host": [
+								"{{base_url}}"
+							],
+							"path": [
+								"api",
+								"v1",
+								"clients",
+								"by-domain",
+								"example.com"
+							],
+							"query": [
+								{
+									"key": "include_secrets",
+									"value": "false",
+									"description": "Set to true to include decrypted secrets"
+								}
+							]
+						},
+						"description": "Get a client by their domain name."
+					},
+					"response": []
+				},
+				{
+					"name": "Create Client",
+					"request": {
+						"method": "POST",
+						"header": [
+							{
+								"key": "X-API-Key",
+								"value": "{{api_key}}",
+								"type": "text"
+							},
+							{
+								"key": "Content-Type",
+								"value": "application/json",
+								"type": "text"
+							}
+						],
+						"body": {
+							"mode": "raw",
+							"raw": "{\n    \"name\": \"Example Corp\",\n    \"domain\": \"example.com\",\n    \"cloudflare_account_id\": \"abc123\",\n    \"cloudflare_api_token\": \"secret-token-will-be-encrypted\",\n    \"cloudflare_kv_namespace_id\": \"kv123\",\n    \"gemini_api_key\": \"optional-gemini-key\",\n    \"is_active\": true\n}",
+							"options": {
+								"raw": {
+									"language": "json"
+								}
+							}
+						},
+						"url": {
+							"raw": "{{base_url}}/api/v1/clients",
+							"host": [
+								"{{base_url}}"
+							],
+							"path": [
+								"api",
+								"v1",
+								"clients"
+							]
+						},
+						"description": "Create a new client. Sensitive fields like API tokens will be encrypted at rest."
+					},
+					"response": []
+				},
+				{
+					"name": "Update Client (PUT)",
+					"request": {
+						"method": "PUT",
+						"header": [
+							{
+								"key": "X-API-Key",
+								"value": "{{api_key}}",
+								"type": "text"
+							},
+							{
+								"key": "Content-Type",
+								"value": "application/json",
+								"type": "text"
+							}
+						],
+						"body": {
+							"mode": "raw",
+							"raw": "{\n    \"cloudflare_api_token\": \"new-token\",\n    \"is_active\": false\n}",
+							"options": {
+								"raw": {
+									"language": "json"
+								}
+							}
+						},
+						"url": {
+							"raw": "{{base_url}}/api/v1/clients/{{client_id}}",
+							"host": [
+								"{{base_url}}"
+							],
+							"path": [
+								"api",
+								"v1",
+								"clients",
+								"{{client_id}}"
+							]
+						},
+						"description": "Update an existing client. All fields are optional - only include the fields you want to update."
+					},
+					"response": []
+				},
+				{
+					"name": "Update Client (PATCH)",
+					"request": {
+						"method": "PATCH",
+						"header": [
+							{
+								"key": "X-API-Key",
+								"value": "{{api_key}}",
+								"type": "text"
+							},
+							{
+								"key": "Content-Type",
+								"value": "application/json",
+								"type": "text"
+							}
+						],
+						"body": {
+							"mode": "raw",
+							"raw": "{\n    \"is_active\": true\n}",
+							"options": {
+								"raw": {
+									"language": "json"
+								}
+							}
+						},
+						"url": {
+							"raw": "{{base_url}}/api/v1/clients/{{client_id}}",
+							"host": [
+								"{{base_url}}"
+							],
+							"path": [
+								"api",
+								"v1",
+								"clients",
+								"{{client_id}}"
+							]
+						},
+						"description": "Partial update of a client (same as PUT)."
+					},
+					"response": []
+				},
+				{
+					"name": "Delete Client",
+					"request": {
+						"method": "DELETE",
+						"header": [
+							{
+								"key": "X-API-Key",
+								"value": "{{api_key}}",
+								"type": "text"
+							}
+						],
+						"url": {
+							"raw": "{{base_url}}/api/v1/clients/{{client_id}}",
+							"host": [
+								"{{base_url}}"
+							],
+							"path": [
+								"api",
+								"v1",
+								"clients",
+								"{{client_id}}"
+							]
+						},
+						"description": "Delete a client. WARNING: This will cascade delete all associated pages and visits."
+					},
+					"response": []
+				}
+			],
+			"description": "Client management endpoints for CRUD operations. All require API key authentication."
+		},
+		{
+			"name": "Sitemap",
+			"item": [
+				{
+					"name": "Parse Sitemap (Preview)",
+					"request": {
+						"method": "POST",
+						"header": [
+							{
+								"key": "X-API-Key",
+								"value": "{{api_key}}",
+								"type": "text"
+							},
+							{
+								"key": "Content-Type",
+								"value": "application/json",
+								"type": "text"
+							}
+						],
+						"body": {
+							"mode": "raw",
+							"raw": "{\n    \"sitemap_url\": \"https://example.com/sitemap.xml\",\n    \"recursive\": true,\n    \"max_depth\": 3\n}",
+							"options": {
+								"raw": {
+									"language": "json"
+								}
+							}
+						},
+						"url": {
+							"raw": "{{base_url}}/api/v1/sitemap/parse",
+							"host": [
+								"{{base_url}}"
+							],
+							"path": [
+								"api",
+								"v1",
+								"sitemap",
+								"parse"
+							]
+						},
+						"description": "Parse a sitemap without creating database entries. Useful for previewing what URLs would be imported. Returns first 100 URLs."
+					},
+					"response": []
+				},
+				{
+					"name": "Import Sitemap",
+					"request": {
+						"method": "POST",
+						"header": [
+							{
+								"key": "X-API-Key",
+								"value": "{{api_key}}",
+								"type": "text"
+							},
+							{
+								"key": "Content-Type",
+								"value": "application/json",
+								"type": "text"
+							}
+						],
+						"body": {
+							"mode": "raw",
+							"raw": "{\n    \"client_id\": \"{{client_id}}\",\n    \"sitemap_url\": \"https://example.com/sitemap.xml\",\n    \"recursive\": true,\n    \"max_depth\": 3,\n    \"create_pages\": true,\n    \"overwrite\": false\n}",
+							"options": {
+								"raw": {
+									"language": "json"
+								}
+							}
+						},
+						"url": {
+							"raw": "{{base_url}}/api/v1/sitemap/import",
+							"host": [
+								"{{base_url}}"
+							],
+							"path": [
+								"api",
+								"v1",
+								"sitemap",
+								"import"
+							]
+						},
+						"description": "Import all URLs from a sitemap into the database as Page entries. Automatically follows sitemap index files when recursive=true."
+					},
+					"response": []
+				},
+				{
+					"name": "List Client Pages",
+					"request": {
+						"method": "GET",
+						"header": [
+							{
+								"key": "X-API-Key",
+								"value": "{{api_key}}",
+								"type": "text"
+							}
+						],
+						"url": {
+							"raw": "{{base_url}}/api/v1/sitemap/client/{{client_id}}/pages?limit=100&offset=0&has_content=false",
+							"host": [
+								"{{base_url}}"
+							],
+							"path": [
+								"api",
+								"v1",
+								"sitemap",
+								"client",
+								"{{client_id}}",
+								"pages"
+							],
+							"query": [
+								{
+									"key": "limit",
+									"value": "100",
+									"description": "Max pages to return (default: 100, max: 1000)"
+								},
+								{
+									"key": "offset",
+									"value": "0",
+									"description": "Number of pages to skip (default: 0)"
+								},
+								{
+									"key": "has_content",
+									"value": "false",
+									"description": "Filter by content presence: true (has content), false (no content), or omit for all"
+								}
+							]
+						},
+						"description": "List all pages for a specific client with pagination and filtering options."
+					},
+					"response": []
+				}
+			],
+			"description": "Sitemap import and page management endpoints. All require API key authentication."
+		}
+	]
+}

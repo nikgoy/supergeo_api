@@ -3,6 +3,8 @@ Client CRUD API endpoints.
 
 Provides REST API for managing clients and their Cloudflare credentials.
 All endpoints require API key authentication via X-API-Key header.
+
+IMPORTANT: When modifying endpoints in this file, update postman_collection.json
 """
 from uuid import UUID
 

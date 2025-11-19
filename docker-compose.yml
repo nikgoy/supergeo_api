@@ -21,7 +21,7 @@ services:
       start_period: 40s
 
   # Optional: Local PostgreSQL for development
-  # Comment out and use Supabase for production
+  # Comment out and use Neon for production
   db:
     image: postgres:15-alpine
     environment:

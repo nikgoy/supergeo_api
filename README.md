@@ -6,7 +6,7 @@ A production-ready Flask API for building an AI-friendly caching layer for websi
 
 - **Multi-tenant architecture**: Each client/domain has isolated configuration
 - **Secure credential storage**: Cloudflare API tokens and Gemini keys encrypted at rest using Fernet
-- **Supabase/PostgreSQL**: Single source of truth with proper relational schema
+- **Neon/PostgreSQL**: Single source of truth with proper relational schema
 - **Complete pipeline support**: Raw HTML → Gemini Markdown → Simple HTML → Cloudflare KV
 - **Visit tracking**: Analytics for AI bot detection and traffic patterns
 - **REST API**: Full CRUD operations for client management
@@ -17,7 +17,7 @@ A production-ready Flask API for building an AI-friendly caching layer for websi
 - **Python 3.11+**
 - **Flask 3.x** with blueprints and app factory pattern
 - **SQLAlchemy 2.0+** with Alembic migrations
-- **Supabase** (PostgreSQL) for database
+- **Neon** (PostgreSQL) for database
 - **Pydantic Settings** for configuration management
 - **Cryptography (Fernet)** for encryption
 - **Google Gemini API** for content processing
@@ -138,21 +138,20 @@ CREATE TABLE visits (
 ### 1. Prerequisites
 
 - Python 3.11 or higher
-- Supabase account and project
+- Neon account and database
 - Google Gemini API key
 - Cloudflare account (for each client)
 
-### 2. Create Supabase Project
+### 2. Create Neon Database
 
-1. Go to [supabase.com](https://supabase.com) and create a new project
+1. Go to [neon.tech](https://neon.tech) and create a new project
 2. Wait for the database to be provisioned
-3. Go to **Project Settings** → **Database**
-4. Copy the **Connection string** (Session mode)
-5. Copy your **Project URL** and **Service Role Key** from **API Settings**
+3. Go to **Dashboard** → **Connection Details**
+4. Copy the **Connection string** (it will look like: `postgresql://[user]:[password]@[endpoint].neon.tech/[dbname]?sslmode=require`)
 
 ### 3. Enable Required Extensions
 
-In the Supabase SQL Editor, run:
+In the Neon SQL Editor, run:
 
 ```sql
 CREATE EXTENSION IF NOT EXISTS "pgcrypto";
@@ -196,10 +195,8 @@ FLASK_ENV=development
 SECRET_KEY=<generate-with-secrets-token-hex-32>
 DEBUG=True
 
-# Database (get from Supabase)
-SUPABASE_URL=https://your-project-ref.supabase.co
-SUPABASE_KEY=your-service-role-key
-DATABASE_URL=postgresql://postgres.[project-ref]:[password]@aws-0-us-west-1.pooler.supabase.com:6543/postgres
+# Database (get from Neon)
+DATABASE_URL=postgresql://[user]:[password]@[endpoint].neon.tech/[dbname]?sslmode=require
 
 # API Keys
 GEMINI_API_KEY=your-gemini-api-key
@@ -372,6 +369,21 @@ xdg-open htmlcov/index.html  # Linux
 For detailed testing documentation, see [TESTING.md](TESTING.md).
 
 ## API Documentation
+
+### Postman Collection
+
+A complete Postman collection is available at `postman_collection.json` in the root directory. This collection includes all API endpoints with example requests and environment variables.
+
+**To use the Postman collection:**
+
+1. Import `postman_collection.json` into Postman
+2. Set up environment variables:
+   - `base_url`: Your API base URL (default: `http://localhost:5000`)
+   - `api_key`: Your master API key
+   - `client_id`: A valid client UUID for testing
+3. Start making requests!
+
+**Important**: When adding or modifying API endpoints, remember to update the Postman collection to keep it in sync.
 
 ### Authentication
 
@@ -621,10 +633,9 @@ Headers: X-API-Key: your-master-api-key
 
 ### Database
 
-- Use Supabase's connection pooling (port 6543) for better performance
-- Enable Row Level Security (RLS) in Supabase for additional protection
-- Regularly backup your database
-- Use SSL/TLS for database connections (enabled by default with Supabase)
+- Neon provides automatic connection pooling and scaling
+- Regularly backup your database (Neon provides automatic backups)
+- Use SSL/TLS for database connections (enabled by default with Neon using sslmode=require)
 
 ### Production Deployment
 
@@ -671,9 +682,9 @@ pytest --cov=app --cov-report=html
 
 **Solutions**:
 1. Verify `DATABASE_URL` in `.env` is correct
-2. Ensure your Supabase database is running
+2. Ensure your Neon database is running
 3. Check if you're using the correct password
-4. Verify network connectivity to Supabase
+4. Verify network connectivity to Neon
 
 ### Migration Errors
 
@@ -683,7 +694,7 @@ pytest --cov=app --cov-report=html
 1. Check if tables were created manually
 2. Drop all tables and re-run migrations:
    ```bash
-   # In Supabase SQL Editor
+   # In Neon SQL Editor
    DROP TABLE IF EXISTS visits CASCADE;
    DROP TABLE IF EXISTS pages CASCADE;
    DROP TABLE IF EXISTS clients CASCADE;
@@ -746,6 +757,6 @@ MIT License - See LICENSE file for details
 ## Acknowledgments
 
 - Flask team for the excellent web framework
-- Supabase for simplified PostgreSQL hosting
+- Neon for serverless PostgreSQL hosting
 - Google for Gemini API
 - Cloudflare for Workers and KV storage

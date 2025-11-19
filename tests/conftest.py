@@ -11,8 +11,6 @@ from sqlalchemy.orm import sessionmaker
 # Set test environment variables before importing app
 os.environ['FLASK_ENV'] = 'testing'
 os.environ['DATABASE_URL'] = 'sqlite:///:memory:'
-os.environ['SUPABASE_URL'] = 'https://test.supabase.co'
-os.environ['SUPABASE_KEY'] = 'test-key'
 os.environ['GEMINI_API_KEY'] = 'test-gemini-key'
 os.environ['MASTER_API_KEY'] = 'test-master-api-key'
 os.environ['FERNET_KEY'] = 'K8JbF7YzQ_8qPjQ8_K8JbF7YzQ_8qPjQ8_K8JbF7YzQ='

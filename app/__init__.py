@@ -38,12 +38,7 @@ def create_app(config_override: dict = None) -> Flask:
 
     # Initialize database
     try:
-        database_url = os.getenv('DATABASE_URL')
-        if not database_url:
-            print("Warning: DATABASE_URL not set, attempting to construct from Supabase URL")
-            database_url = settings.get_database_url()
-            print(f"Using constructed database URL (verify password is correct)")
-
+        database_url = settings.get_database_url()
         init_db(database_url)
         print(f"Database initialized successfully")
     except Exception as e:
