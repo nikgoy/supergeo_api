@@ -22,6 +22,9 @@ google-generativeai==0.3.1
 requests==2.31.0
 urllib3<2.0.0  # Pin to v1.x for compatibility with older OpenSSL/LibreSSL versions
 
+# Sitemap parsing
+ultimate-sitemap-parser==0.5
+
 # Production server
 gunicorn==21.2.0
 
