@@ -25,14 +25,15 @@ Comprehensive testing guide for the AI Cache Layer project.
 python3 -m venv venv
 source venv/bin/activate  # On Windows: venv\Scripts\activate
 
-# Install development dependencies (includes testing tools)
-pip install -r requirements-dev.txt
+# Quick install (recommended) - installs only essentials
+pip install -r requirements.txt
+pip install pytest pytest-cov pytest-flask pytest-mock cffi
 
-# Install cffi (required for cryptography)
-pip install cffi
+# OR: Full install (slower, includes code quality tools)
+pip install -r requirements-dev.txt
 ```
 
-**Note:** If you encounter dependency conflicts with `types-requests` and `urllib3`, these have been resolved in the latest `requirements-dev.txt`. The type stubs are optional and commented out by default.
+**Note:** The quick install method is much faster and sufficient for running tests. Full install includes optional code quality tools (black, flake8, mypy, isort) which can be installed separately if needed.
 
 ### Run All Tests
 

@@ -10,13 +10,24 @@ This guide provides quick instructions for running the test suite locally.
    source venv/bin/activate  # On Windows: venv\Scripts\activate
    ```
 
-2. **Install dependencies**:
+2. **Install dependencies** (choose one method):
+
+   **Method A: Quick Install (Recommended)**
    ```bash
-   pip install -r requirements-dev.txt
-   pip install cffi
+   # Install production dependencies first
+   pip install -r requirements.txt
+
+   # Install only essential testing packages
+   pip install pytest pytest-cov pytest-flask pytest-mock cffi
    ```
 
-   **Note:** `cffi` is required for the cryptography library.
+   **Method B: Full Install**
+   ```bash
+   # Install all dev dependencies (slower, includes code quality tools)
+   pip install -r requirements-dev.txt
+   ```
+
+   **Note:** Method A is faster and sufficient for running tests. Method B includes additional code quality tools (black, flake8, etc.) which you can install later if needed.
 
 ## Running Tests
 
