@@ -370,6 +370,21 @@ For detailed testing documentation, see [TESTING.md](TESTING.md).
 
 ## API Documentation
 
+### Postman Collection
+
+A complete Postman collection is available at `postman_collection.json` in the root directory. This collection includes all API endpoints with example requests and environment variables.
+
+**To use the Postman collection:**
+
+1. Import `postman_collection.json` into Postman
+2. Set up environment variables:
+   - `base_url`: Your API base URL (default: `http://localhost:5000`)
+   - `api_key`: Your master API key
+   - `client_id`: A valid client UUID for testing
+3. Start making requests!
+
+**Important**: When adding or modifying API endpoints, remember to update the Postman collection to keep it in sync.
+
 ### Authentication
 
 All `/api/v1/*` endpoints require API key authentication:

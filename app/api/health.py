@@ -2,6 +2,8 @@
 Health check endpoint.
 
 Provides basic health status and database connectivity check.
+
+IMPORTANT: When modifying endpoints in this file, update postman_collection.json
 """
 from flask import Blueprint, jsonify
 from sqlalchemy import text

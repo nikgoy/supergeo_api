@@ -2,6 +2,8 @@
 Sitemap API endpoints.
 
 Provides endpoints for importing URLs from sitemaps.
+
+IMPORTANT: When modifying endpoints in this file, update postman_collection.json
 """
 from datetime import datetime
 from uuid import UUID
