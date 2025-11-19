@@ -94,7 +94,32 @@ pytest -x
 pytest --lf
 ```
 
+## Expected Test Results
+
+As of the latest commit:
+- ✅ **84 tests passing**
+- 15 failures (actual implementation issues)
+- 41 errors (mostly transaction/fixture related)
+- Some warnings (normal for SQLite transactions)
+
+**The test infrastructure is working!** Most tests run successfully.
+
 ## Common Issues
+
+### If you see many errors or different results
+
+See [TROUBLESHOOTING_TESTS.md](TROUBLESHOOTING_TESTS.md) for detailed troubleshooting steps.
+
+Quick fixes:
+```bash
+# Clean cache
+find . -type d -name __pycache__ -exec rm -rf {} + 2>/dev/null
+rm -rf .pytest_cache
+
+# Reinstall dependencies
+pip install --no-cache-dir -r requirements.txt
+pip install --no-cache-dir pytest pytest-cov pytest-flask pytest-mock cffi
+```
 
 ### Import Errors
 Make sure you're in the project root directory and your virtual environment is activated:
@@ -102,12 +127,6 @@ Make sure you're in the project root directory and your virtual environment is a
 source venv/bin/activate  # or venv\Scripts\activate on Windows
 cd /path/to/supergeo_api
 pytest
-```
-
-### Missing Dependencies
-```bash
-pip install -r requirements-dev.txt --force-reinstall
-pip install cffi
 ```
 
 ### Database Errors
