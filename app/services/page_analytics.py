@@ -42,25 +42,25 @@ class PageAnalyticsService:
             Page.client_id == client_id
         ).scalar() or 0
 
-        # Calculate URLs with raw HTML
-        urls_with_raw_html = db.query(func.count(Page.id)).filter(
+        # Calculate URLs with raw markdown
+        urls_with_raw_markdown = db.query(func.count(Page.id)).filter(
             Page.client_id == client_id,
-            Page.raw_html.isnot(None),
-            Page.raw_html != ''
+            Page.raw_markdown.isnot(None),
+            Page.raw_markdown != ''
         ).scalar() or 0
 
-        # Calculate URLs with markdown
+        # Calculate URLs with LLM markdown
         urls_with_markdown = db.query(func.count(Page.id)).filter(
             Page.client_id == client_id,
-            Page.markdown_content.isnot(None),
-            Page.markdown_content != ''
+            Page.llm_markdown.isnot(None),
+            Page.llm_markdown != ''
         ).scalar() or 0
 
-        # Calculate URLs with simple HTML
-        urls_with_simple_html = db.query(func.count(Page.id)).filter(
+        # Calculate URLs with geo HTML
+        urls_with_geo_html = db.query(func.count(Page.id)).filter(
             Page.client_id == client_id,
-            Page.simple_html.isnot(None),
-            Page.simple_html != ''
+            Page.geo_html.isnot(None),
+            Page.geo_html != ''
         ).scalar() or 0
 
         # Calculate URLs with KV key
@@ -71,9 +71,9 @@ class PageAnalyticsService:
         ).scalar() or 0
 
         # Calculate completion rates
-        html_completion_rate = (urls_with_raw_html / total_urls * 100) if total_urls > 0 else 0.0
+        html_completion_rate = (urls_with_raw_markdown / total_urls * 100) if total_urls > 0 else 0.0
         markdown_completion_rate = (urls_with_markdown / total_urls * 100) if total_urls > 0 else 0.0
-        simple_html_completion_rate = (urls_with_simple_html / total_urls * 100) if total_urls > 0 else 0.0
+        geo_html_completion_rate = (urls_with_geo_html / total_urls * 100) if total_urls > 0 else 0.0
         kv_upload_completion_rate = (urls_with_kv_key / total_urls * 100) if total_urls > 0 else 0.0
 
         # Calculate pages updated in last 30 days
@@ -91,13 +91,13 @@ class PageAnalyticsService:
         if analytics:
             # Update existing record
             analytics.total_urls = total_urls
-            analytics.urls_with_raw_html = urls_with_raw_html
+            analytics.urls_with_raw_markdown = urls_with_raw_markdown
             analytics.urls_with_markdown = urls_with_markdown
-            analytics.urls_with_simple_html = urls_with_simple_html
+            analytics.urls_with_geo_html = urls_with_geo_html
             analytics.urls_with_kv_key = urls_with_kv_key
             analytics.html_completion_rate = html_completion_rate
             analytics.markdown_completion_rate = markdown_completion_rate
-            analytics.simple_html_completion_rate = simple_html_completion_rate
+            analytics.geo_html_completion_rate = geo_html_completion_rate
             analytics.kv_upload_completion_rate = kv_upload_completion_rate
             analytics.pages_updated_last_30_days = pages_updated_last_30_days
             analytics.last_calculated_at = datetime.utcnow()
@@ -106,13 +106,13 @@ class PageAnalyticsService:
             analytics = PageAnalytics(
                 client_id=client_id,
                 total_urls=total_urls,
-                urls_with_raw_html=urls_with_raw_html,
+                urls_with_raw_markdown=urls_with_raw_markdown,
                 urls_with_markdown=urls_with_markdown,
-                urls_with_simple_html=urls_with_simple_html,
+                urls_with_geo_html=urls_with_geo_html,
                 urls_with_kv_key=urls_with_kv_key,
                 html_completion_rate=html_completion_rate,
                 markdown_completion_rate=markdown_completion_rate,
-                simple_html_completion_rate=simple_html_completion_rate,
+                geo_html_completion_rate=geo_html_completion_rate,
                 kv_upload_completion_rate=kv_upload_completion_rate,
                 pages_updated_last_30_days=pages_updated_last_30_days,
                 last_calculated_at=datetime.utcnow()

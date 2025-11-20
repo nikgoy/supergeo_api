@@ -99,10 +99,10 @@ CREATE TABLE pages (
     client_id UUID REFERENCES clients(id) ON DELETE CASCADE,
     url TEXT NOT NULL,
     url_hash TEXT NOT NULL,                -- SHA-256 of normalized URL
-    content_hash TEXT,                     -- SHA-256 of raw HTML
-    raw_html TEXT,                         -- Scraped content
-    markdown_content TEXT,                 -- Gemini-processed
-    simple_html TEXT,                      -- Generated minimal HTML
+    content_hash TEXT,                     -- SHA-256 of raw markdown
+    raw_markdown TEXT,                     -- Raw scraped markdown content
+    llm_markdown TEXT,                     -- LLM-processed markdown
+    geo_html TEXT,                         -- GeoGuide-specific HTML
     last_scraped_at TIMESTAMPTZ,
     last_processed_at TIMESTAMPTZ,
     kv_uploaded_at TIMESTAMPTZ,
@@ -555,7 +555,9 @@ Response:
     {
       "id": "...",
       "url": "https://example.com/page1",
-      "has_raw_html": false,
+      "has_raw_markdown": false,
+      "has_llm_markdown": false,
+      "has_geo_html": false,
       "last_scraped_at": null,
       "version": 1,
       ...

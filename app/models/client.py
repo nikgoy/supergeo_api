@@ -162,7 +162,7 @@ class Page(Base):
     """
     Cached page content.
 
-    Stores the complete pipeline: raw HTML → Markdown → simple HTML → KV storage.
+    Stores the complete pipeline: raw markdown → LLM markdown → geo HTML → KV storage.
     """
 
     __tablename__ = "pages"
@@ -175,12 +175,12 @@ class Page(Base):
 
     url = Column(Text, nullable=False, index=True)
     url_hash = Column(Text, nullable=False, index=True)  # SHA-256 of normalized URL
-    content_hash = Column(Text, nullable=True)  # SHA-256 of raw HTML for change detection
+    content_hash = Column(Text, nullable=True)  # SHA-256 of raw markdown for change detection
 
     # Content at various stages
-    raw_html = Column(Text, nullable=True)
-    markdown_content = Column(Text, nullable=True)
-    simple_html = Column(Text, nullable=True)
+    raw_markdown = Column(Text, nullable=True)  # Raw markdown from scraping
+    llm_markdown = Column(Text, nullable=True)  # LLM-processed markdown
+    geo_html = Column(Text, nullable=True)  # GeoGuide-specific HTML
 
     # Processing timestamps
     last_scraped_at = Column(DateTime, nullable=True)
@@ -233,9 +233,9 @@ class Page(Base):
         self.url_hash = self.compute_url_hash(self.url)
 
     def update_content_hash(self) -> None:
-        """Update content_hash based on current raw_html."""
-        if self.raw_html:
-            self.content_hash = self.compute_content_hash(self.raw_html)
+        """Update content_hash based on current raw_markdown."""
+        if self.raw_markdown:
+            self.content_hash = self.compute_content_hash(self.raw_markdown)
         else:
             self.content_hash = None
 
@@ -252,9 +252,9 @@ class Page(Base):
             "url": self.url,
             "url_hash": self.url_hash,
             "content_hash": self.content_hash,
-            "has_raw_html": self.raw_html is not None,
-            "has_markdown": self.markdown_content is not None,
-            "has_simple_html": self.simple_html is not None,
+            "has_raw_markdown": self.raw_markdown is not None,
+            "has_llm_markdown": self.llm_markdown is not None,
+            "has_geo_html": self.geo_html is not None,
             "last_scraped_at": self.last_scraped_at.isoformat() if self.last_scraped_at else None,
             "last_processed_at": self.last_processed_at.isoformat() if self.last_processed_at else None,
             "kv_uploaded_at": self.kv_uploaded_at.isoformat() if self.kv_uploaded_at else None,
@@ -349,15 +349,15 @@ class PageAnalytics(Base):
 
     # Raw counts
     total_urls = Column(Integer, nullable=False, default=0)
-    urls_with_raw_html = Column(Integer, nullable=False, default=0)
+    urls_with_raw_markdown = Column(Integer, nullable=False, default=0)
     urls_with_markdown = Column(Integer, nullable=False, default=0)
-    urls_with_simple_html = Column(Integer, nullable=False, default=0)
+    urls_with_geo_html = Column(Integer, nullable=False, default=0)
     urls_with_kv_key = Column(Integer, nullable=False, default=0)
 
     # Completion rates (0.0 to 100.0)
     html_completion_rate = Column(Float, nullable=False, default=0.0)
     markdown_completion_rate = Column(Float, nullable=False, default=0.0)
-    simple_html_completion_rate = Column(Float, nullable=False, default=0.0)
+    geo_html_completion_rate = Column(Float, nullable=False, default=0.0)
     kv_upload_completion_rate = Column(Float, nullable=False, default=0.0)
 
     # Recent activity
@@ -385,13 +385,13 @@ class PageAnalytics(Base):
             "id": str(self.id),
             "client_id": str(self.client_id),
             "total_urls": self.total_urls,
-            "urls_with_raw_html": self.urls_with_raw_html,
+            "urls_with_raw_markdown": self.urls_with_raw_markdown,
             "urls_with_markdown": self.urls_with_markdown,
-            "urls_with_simple_html": self.urls_with_simple_html,
+            "urls_with_geo_html": self.urls_with_geo_html,
             "urls_with_kv_key": self.urls_with_kv_key,
             "html_completion_rate": round(self.html_completion_rate, 2),
             "markdown_completion_rate": round(self.markdown_completion_rate, 2),
-            "simple_html_completion_rate": round(self.simple_html_completion_rate, 2),
+            "geo_html_completion_rate": round(self.geo_html_completion_rate, 2),
             "kv_upload_completion_rate": round(self.kv_upload_completion_rate, 2),
             "pages_updated_last_30_days": self.pages_updated_last_30_days,
             "last_calculated_at": self.last_calculated_at.isoformat() if self.last_calculated_at else None,

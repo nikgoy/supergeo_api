@@ -346,10 +346,11 @@ curl -H "X-API-Key: $API_KEY" http://localhost:5000/api/v1/clients
 
 After importing URLs:
 
-1. **Scrape Pages** - Implement scraping to populate `raw_html`
-2. **Process with Gemini** - Convert HTML to Markdown
-3. **Upload to KV** - Store processed content in Cloudflare KV
-4. **Track Visits** - Monitor which pages AI bots access
+1. **Scrape Pages** - Implement scraping to populate `raw_markdown`
+2. **Process with Gemini** - Convert raw content to `llm_markdown`
+3. **Generate GeoHTML** - Create `geo_html` from processed content
+4. **Upload to KV** - Store processed content in Cloudflare KV
+5. **Track Visits** - Monitor which pages AI bots access
 
 ## API Reference
 

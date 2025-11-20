@@ -399,7 +399,7 @@ class TestSitemapAPI:
             client_id=sample_client.id,
             url='https://test.com/with-content',
             url_hash=Page.compute_url_hash('https://test.com/with-content'),
-            raw_html='<html>content</html>'
+            raw_markdown='<html>content</html>'
         )
         page2 = Page(
             client_id=sample_client.id,
