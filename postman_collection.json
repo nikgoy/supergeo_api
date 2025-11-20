@@ -20,6 +20,11 @@
 			"key": "client_id",
 			"value": "00000000-0000-0000-0000-000000000000",
 			"type": "string"
+		},
+		{
+			"key": "page_id",
+			"value": "00000000-0000-0000-0000-000000000000",
+			"type": "string"
 		}
 	],
 	"item": [
@@ -593,6 +598,164 @@
 				}
 			],
 			"description": "Page analytics endpoints for tracking pipeline progress. Monitor how many pages have completed each processing stage (raw HTML → markdown → simple HTML → KV upload). All endpoints require API key authentication."
+		},
+		{
+			"name": "Apify Scraping",
+			"item": [
+				{
+					"name": "Scrape Single URL",
+					"request": {
+						"method": "POST",
+						"header": [
+							{
+								"key": "X-API-Key",
+								"value": "{{api_key}}",
+								"type": "text"
+							},
+							{
+								"key": "Content-Type",
+								"value": "application/json",
+								"type": "text"
+							}
+						],
+						"body": {
+							"mode": "raw",
+							"raw": "{\n    \"page_id\": \"{{page_id}}\",\n    \"force_rescrape\": false\n}",
+							"options": {
+								"raw": {
+									"language": "json"
+								}
+							}
+						},
+						"url": {
+							"raw": "{{base_url}}/api/v1/apify/scrape-url",
+							"host": [
+								"{{base_url}}"
+							],
+							"path": [
+								"api",
+								"v1",
+								"apify",
+								"scrape-url"
+							]
+						},
+						"description": "Scrape a single URL using Apify RAG Web Browser. Extracts raw markdown content and stores it in the Page.raw_markdown field.\n\n**Request Body Options**:\n- `page_id` (UUID): Page ID to scrape (either page_id or url+client_id required)\n- `url` (string): URL to scrape (alternative to page_id)\n- `client_id` (UUID): Client ID (required when using url instead of page_id)\n- `force_rescrape` (boolean): Re-scrape even if raw_markdown exists (default: false)\n- `create_if_missing` (boolean): Create page if it doesn't exist when using url (default: true)\n\n**Pipeline Stage**: Fills Stage 1 (raw_markdown)"
+					},
+					"response": []
+				},
+				{
+					"name": "Scrape Single URL (by URL)",
+					"request": {
+						"method": "POST",
+						"header": [
+							{
+								"key": "X-API-Key",
+								"value": "{{api_key}}",
+								"type": "text"
+							},
+							{
+								"key": "Content-Type",
+								"value": "application/json",
+								"type": "text"
+							}
+						],
+						"body": {
+							"mode": "raw",
+							"raw": "{\n    \"url\": \"https://example.com/page\",\n    \"client_id\": \"{{client_id}}\",\n    \"create_if_missing\": true,\n    \"force_rescrape\": false\n}",
+							"options": {
+								"raw": {
+									"language": "json"
+								}
+							}
+						},
+						"url": {
+							"raw": "{{base_url}}/api/v1/apify/scrape-url",
+							"host": [
+								"{{base_url}}"
+							],
+							"path": [
+								"api",
+								"v1",
+								"apify",
+								"scrape-url"
+							]
+						},
+						"description": "Scrape a URL by providing the URL and client_id directly (instead of page_id). The page will be created if it doesn't exist when create_if_missing=true."
+					},
+					"response": []
+				},
+				{
+					"name": "Batch Scrape Client URLs",
+					"request": {
+						"method": "POST",
+						"header": [
+							{
+								"key": "X-API-Key",
+								"value": "{{api_key}}",
+								"type": "text"
+							},
+							{
+								"key": "Content-Type",
+								"value": "application/json",
+								"type": "text"
+							}
+						],
+						"body": {
+							"mode": "raw",
+							"raw": "{\n    \"only_missing\": true,\n    \"max_pages\": 100,\n    \"max_workers\": 5\n}",
+							"options": {
+								"raw": {
+									"language": "json"
+								}
+							}
+						},
+						"url": {
+							"raw": "{{base_url}}/api/v1/apify/scrape-client/{{client_id}}",
+							"host": [
+								"{{base_url}}"
+							],
+							"path": [
+								"api",
+								"v1",
+								"apify",
+								"scrape-client",
+								"{{client_id}}"
+							]
+						},
+						"description": "Batch scrape all URLs for a client using parallel processing.\n\n**Request Body Options**:\n- `only_missing` (boolean): Only scrape pages without raw_markdown (default: true)\n- `max_pages` (integer): Maximum pages to scrape (default: 100, max: 1000)\n- `force_rescrape` (boolean): Re-scrape even if raw_markdown exists (default: false)\n- `max_workers` (integer): Number of parallel workers (default: from config)\n\n**Returns**: Summary with successful/failed counts and detailed results for each page.\n\n**Use Case**: After importing URLs from sitemap, use this to scrape all pages in parallel."
+					},
+					"response": []
+				},
+				{
+					"name": "Get Scrape Status",
+					"request": {
+						"method": "GET",
+						"header": [
+							{
+								"key": "X-API-Key",
+								"value": "{{api_key}}",
+								"type": "text"
+							}
+						],
+						"url": {
+							"raw": "{{base_url}}/api/v1/apify/status/{{page_id}}",
+							"host": [
+								"{{base_url}}"
+							],
+							"path": [
+								"api",
+								"v1",
+								"apify",
+								"status",
+								"{{page_id}}"
+							]
+						},
+						"description": "Get scraping status for a specific page.\n\n**Returns**:\n- Page scraping metadata (last_scraped_at, apify_run_id, scrape_attempts)\n- Content presence (has_raw_markdown)\n- Error information (scrape_error)\n- Apify run status (if run_id available)\n- Content hash for change detection"
+					},
+					"response": []
+				}
+			],
+			"description": "Apify RAG Web Browser integration endpoints for scraping URLs and extracting raw markdown content. This fills Stage 1 of the content processing pipeline.\n\n**Pipeline Stages**:\n1. **raw_markdown** ← Apify scraping (these endpoints)\n2. **llm_markdown** ← Gemini processing\n3. **geo_html** ← Generative Engine Optimization HTML\n4. **Cloudflare KV** ← Upload to KV store\n\n**Features**:\n- Parallel URL scraping with configurable concurrency\n- Automatic retry logic (3 attempts by default)\n- Error tracking per page\n- Progress monitoring via Page Analytics\n\nAll endpoints require API key authentication."
 		}
 	]
 }
