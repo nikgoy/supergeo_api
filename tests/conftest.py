@@ -151,9 +151,9 @@ def sample_page(db, sample_client):
         client_id=sample_client.id,
         url='https://test.com/page1',
         url_hash=Page.compute_url_hash('https://test.com/page1'),
-        raw_html='<html><body>Test content</body></html>',
-        markdown_content='# Test content',
-        simple_html='<h1>Test content</h1>',
+        raw_markdown='<html><body>Test content</body></html>',
+        llm_markdown='# Test content',
+        geo_html='<h1>Test content</h1>',
         kv_key='https/test-com/page1',
         version=1
     )

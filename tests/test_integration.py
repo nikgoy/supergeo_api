@@ -41,13 +41,13 @@ class TestClientWorkflow:
             client_id=db_client.id,
             url='https://integration.com/page1',
             url_hash=Page.compute_url_hash('https://integration.com/page1'),
-            raw_html='<html>Page 1</html>'
+            raw_markdown='<html>Page 1</html>'
         )
         page2 = Page(
             client_id=db_client.id,
             url='https://integration.com/page2',
             url_hash=Page.compute_url_hash('https://integration.com/page2'),
-            raw_html='<html>Page 2</html>'
+            raw_markdown='<html>Page 2</html>'
         )
 
         db.add(page1)
@@ -108,7 +108,7 @@ class TestPageProcessingWorkflow:
             client_id=sample_client.id,
             url='https://test.com/article',
             url_hash=Page.compute_url_hash('https://test.com/article'),
-            raw_html='<html><body><h1>Article Title</h1><p>Content here</p></body></html>'
+            raw_markdown='<html><body><h1>Article Title</h1><p>Content here</p></body></html>'
         )
         page.update_content_hash()
         page.last_scraped_at = datetime.utcnow()
@@ -117,13 +117,13 @@ class TestPageProcessingWorkflow:
         db.commit()
 
         # 2. Process with Gemini (simulated)
-        page.markdown_content = '# Article Title\n\nContent here'
+        page.llm_markdown = '# Article Title\n\nContent here'
         page.last_processed_at = datetime.utcnow()
 
         db.commit()
 
-        # 3. Generate simple HTML (simulated)
-        page.simple_html = '<h1>Article Title</h1><p>Content here</p>'
+        # 3. Generate geo HTML (simulated)
+        page.geo_html = '<h1>Article Title</h1><p>Content here</p>'
 
         db.commit()
 
@@ -136,9 +136,9 @@ class TestPageProcessingWorkflow:
         db.refresh(page)
 
         # Verify complete pipeline
-        assert page.raw_html is not None
-        assert page.markdown_content is not None
-        assert page.simple_html is not None
+        assert page.raw_markdown is not None
+        assert page.llm_markdown is not None
+        assert page.geo_html is not None
         assert page.kv_key is not None
         assert page.version == 2
         assert page.last_scraped_at is not None
@@ -152,7 +152,7 @@ class TestPageProcessingWorkflow:
             client_id=sample_client.id,
             url='https://test.com/dynamic',
             url_hash=Page.compute_url_hash('https://test.com/dynamic'),
-            raw_html='<html>Version 1</html>'
+            raw_markdown='<html>Version 1</html>'
         )
         page.update_content_hash()
 
@@ -162,7 +162,7 @@ class TestPageProcessingWorkflow:
         original_hash = page.content_hash
 
         # Update content
-        page.raw_html = '<html>Version 2</html>'
+        page.raw_markdown = '<html>Version 2</html>'
         page.update_content_hash()
 
         db.commit()
@@ -178,7 +178,7 @@ class TestPageProcessingWorkflow:
             client_id=sample_client.id,
             url='https://test.com/versioned',
             url_hash=Page.compute_url_hash('https://test.com/versioned'),
-            raw_html='<html>Content</html>',
+            raw_markdown='<html>Content</html>',
             version=1
         )
 

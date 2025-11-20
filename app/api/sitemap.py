@@ -380,9 +380,9 @@ def list_client_pages(client_id: UUID):
 
         # Filter by content
         if has_content == 'true':
-            query = query.filter(Page.raw_html.isnot(None))
+            query = query.filter(Page.raw_markdown.isnot(None))
         elif has_content == 'false':
-            query = query.filter(Page.raw_html.is_(None))
+            query = query.filter(Page.raw_markdown.is_(None))
 
         # Get total count
         total = query.count()

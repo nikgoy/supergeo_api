@@ -26,37 +26,37 @@ def pages_with_pipeline_stages(db, sample_client):
             client_id=sample_client.id,
             url='https://test.com/complete',
             url_hash=Page.compute_url_hash('https://test.com/complete'),
-            raw_html='<html>Complete</html>',
-            markdown_content='# Complete',
-            simple_html='<h1>Complete</h1>',
+            raw_markdown='<html>Complete</html>',
+            llm_markdown='# Complete',
+            geo_html='<h1>Complete</h1>',
             kv_key='https/test-com/complete',
             version=1
         ),
-        # Page with only raw HTML
+        # Page with only raw markdown
         Page(
             client_id=sample_client.id,
             url='https://test.com/html-only',
             url_hash=Page.compute_url_hash('https://test.com/html-only'),
-            raw_html='<html>HTML only</html>',
+            raw_markdown='<html>HTML only</html>',
             version=1
         ),
-        # Page with raw HTML and markdown
+        # Page with raw markdown and LLM markdown
         Page(
             client_id=sample_client.id,
             url='https://test.com/html-md',
             url_hash=Page.compute_url_hash('https://test.com/html-md'),
-            raw_html='<html>HTML MD</html>',
-            markdown_content='# HTML MD',
+            raw_markdown='<html>HTML MD</html>',
+            llm_markdown='# HTML MD',
             version=1
         ),
-        # Page with raw HTML, markdown, and simple HTML
+        # Page with raw markdown, LLM markdown, and geo HTML
         Page(
             client_id=sample_client.id,
             url='https://test.com/html-md-simple',
             url_hash=Page.compute_url_hash('https://test.com/html-md-simple'),
-            raw_html='<html>HTML MD Simple</html>',
-            markdown_content='# HTML MD Simple',
-            simple_html='<h1>HTML MD Simple</h1>',
+            raw_markdown='<html>HTML MD Simple</html>',
+            llm_markdown='# HTML MD Simple',
+            geo_html='<h1>HTML MD Simple</h1>',
             version=1
         ),
         # Page with no content (just URL)
@@ -95,13 +95,13 @@ def sample_analytics(db, sample_client):
     analytics = PageAnalytics(
         client_id=sample_client.id,
         total_urls=100,
-        urls_with_raw_html=80,
+        urls_with_raw_markdown=80,
         urls_with_markdown=60,
-        urls_with_simple_html=50,
+        urls_with_geo_html=50,
         urls_with_kv_key=40,
         html_completion_rate=80.0,
         markdown_completion_rate=60.0,
-        simple_html_completion_rate=50.0,
+        geo_html_completion_rate=50.0,
         kv_upload_completion_rate=40.0,
         pages_updated_last_30_days=15,
         last_calculated_at=datetime.utcnow()
@@ -149,13 +149,13 @@ class TestGetClientAnalytics:
 
         assert data['client_id'] == str(sample_client.id)
         assert data['total_urls'] == 100
-        assert data['urls_with_raw_html'] == 80
+        assert data['urls_with_raw_markdown'] == 80
         assert data['urls_with_markdown'] == 60
-        assert data['urls_with_simple_html'] == 50
+        assert data['urls_with_geo_html'] == 50
         assert data['urls_with_kv_key'] == 40
         assert data['html_completion_rate'] == 80.0
         assert data['markdown_completion_rate'] == 60.0
-        assert data['simple_html_completion_rate'] == 50.0
+        assert data['geo_html_completion_rate'] == 50.0
         assert data['kv_upload_completion_rate'] == 40.0
         assert data['pages_updated_last_30_days'] == 15
         assert 'last_calculated_at' in data
@@ -199,9 +199,9 @@ class TestCalculateClientAnalytics:
 
         analytics = data['analytics']
         assert analytics['total_urls'] == 0
-        assert analytics['urls_with_raw_html'] == 0
+        assert analytics['urls_with_raw_markdown'] == 0
         assert analytics['urls_with_markdown'] == 0
-        assert analytics['urls_with_simple_html'] == 0
+        assert analytics['urls_with_geo_html'] == 0
         assert analytics['urls_with_kv_key'] == 0
         assert analytics['html_completion_rate'] == 0.0
 
@@ -217,13 +217,13 @@ class TestCalculateClientAnalytics:
 
         analytics = data['analytics']
         assert analytics['total_urls'] == 5
-        assert analytics['urls_with_raw_html'] == 4  # 4 pages have raw_html
-        assert analytics['urls_with_markdown'] == 3  # 3 pages have markdown
-        assert analytics['urls_with_simple_html'] == 2  # 2 pages have simple_html
+        assert analytics['urls_with_raw_markdown'] == 4  # 4 pages have raw_markdown
+        assert analytics['urls_with_markdown'] == 3  # 3 pages have LLM markdown
+        assert analytics['urls_with_geo_html'] == 2  # 2 pages have geo_html
         assert analytics['urls_with_kv_key'] == 1  # 1 page has kv_key
         assert analytics['html_completion_rate'] == 80.0  # 4/5 = 80%
         assert analytics['markdown_completion_rate'] == 60.0  # 3/5 = 60%
-        assert analytics['simple_html_completion_rate'] == 40.0  # 2/5 = 40%
+        assert analytics['geo_html_completion_rate'] == 40.0  # 2/5 = 40%
         assert analytics['kv_upload_completion_rate'] == 20.0  # 1/5 = 20%
 
     def test_calculate_analytics_updates_existing(self, client, auth_headers, sample_client, sample_analytics, pages_with_pipeline_stages):
@@ -290,13 +290,13 @@ class TestGetAllAnalytics:
             analytics = PageAnalytics(
                 client_id=client_obj.id,
                 total_urls=10,
-                urls_with_raw_html=8,
+                urls_with_raw_markdown=8,
                 urls_with_markdown=6,
-                urls_with_simple_html=4,
+                urls_with_geo_html=4,
                 urls_with_kv_key=2,
                 html_completion_rate=80.0,
                 markdown_completion_rate=60.0,
-                simple_html_completion_rate=40.0,
+                geo_html_completion_rate=40.0,
                 kv_upload_completion_rate=20.0,
                 pages_updated_last_30_days=5,
                 last_calculated_at=datetime.utcnow()
@@ -362,7 +362,7 @@ class TestCalculateAllAnalytics:
                     client_id=client_obj.id,
                     url=f'https://{client_obj.domain}/page',
                     url_hash=Page.compute_url_hash(f'https://{client_obj.domain}/page'),
-                    raw_html='<html>Test</html>',
+                    raw_markdown='<html>Test</html>',
                     version=1
                 )
                 page.update_content_hash()
@@ -384,5 +384,5 @@ class TestCalculateAllAnalytics:
         # Verify each analytics record
         for analytics in data['analytics']:
             assert analytics['total_urls'] == 1
-            assert analytics['urls_with_raw_html'] == 1
+            assert analytics['urls_with_raw_markdown'] == 1
             assert 'last_calculated_at' in analytics
