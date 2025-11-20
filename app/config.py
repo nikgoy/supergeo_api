@@ -29,6 +29,7 @@ class Settings(BaseSettings):
     # API Keys
     gemini_api_key: str = Field(..., description="Google Gemini API key (global fallback)")
     master_api_key: str = Field(..., description="Master API key for client CRUD operations")
+    apify_api_token: str = Field(..., description="Apify API token for RAG Web Browser scraping")
 
     # Encryption
     fernet_key: str = Field(..., description="Fernet encryption key (32 url-safe base64 bytes)")
@@ -36,6 +37,11 @@ class Settings(BaseSettings):
     # Application settings
     max_workers: int = Field(default=4, description="Max concurrent workers for async operations")
     page_timeout: int = Field(default=30, description="Timeout for page scraping in seconds")
+
+    # Apify settings
+    apify_timeout: int = Field(default=120, description="Timeout for Apify scraping in seconds")
+    apify_max_parallel: int = Field(default=5, description="Max parallel Apify scrape requests")
+    apify_max_retries: int = Field(default=3, description="Max retry attempts for failed scrapes")
 
     @field_validator("flask_env")
     @classmethod

@@ -180,12 +180,17 @@ class Page(Base):
     # Content at various stages
     raw_markdown = Column(Text, nullable=True)  # Raw markdown from scraping
     llm_markdown = Column(Text, nullable=True)  # LLM-processed markdown
-    geo_html = Column(Text, nullable=True)  # GeoGuide-specific HTML
+    geo_html = Column(Text, nullable=True)  # Generative Engine Optimization HTML
 
     # Processing timestamps
     last_scraped_at = Column(DateTime, nullable=True)
     last_processed_at = Column(DateTime, nullable=True)
     kv_uploaded_at = Column(DateTime, nullable=True)
+
+    # Apify tracking
+    apify_run_id = Column(Text, nullable=True, index=True)  # Apify Actor run ID
+    scrape_error = Column(Text, nullable=True)  # Error message if scraping failed
+    scrape_attempts = Column(Integer, default=0, nullable=False)  # Retry count
 
     # Cloudflare KV metadata
     kv_key = Column(Text, nullable=True)  # e.g., "https/example-com/page"
@@ -260,6 +265,9 @@ class Page(Base):
             "kv_uploaded_at": self.kv_uploaded_at.isoformat() if self.kv_uploaded_at else None,
             "kv_key": self.kv_key,
             "version": self.version,
+            "apify_run_id": self.apify_run_id,
+            "scrape_error": self.scrape_error,
+            "scrape_attempts": self.scrape_attempts,
             "created_at": self.created_at.isoformat() if self.created_at else None,
             "updated_at": self.updated_at.isoformat() if self.updated_at else None,
         }
