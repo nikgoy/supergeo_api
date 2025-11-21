@@ -287,7 +287,11 @@ class Visit(Base):
     """
     Visit tracking for analytics.
 
-    Tracks both AI bot visits and direct user visits.
+    Tracks TWO distinct types of AI-related traffic:
+    1. AI bot crawls (bot_name) - Automated bots indexing the site (GPTBot, ClaudeBot)
+    2. AI app referrals (ai_source) - Human visitors from AI chat apps (ChatGPT, Perplexity)
+
+    Also tracks regular human visits and worker proxy traffic.
     IP addresses are hashed for privacy.
     """
 
@@ -298,11 +302,16 @@ class Visit(Base):
     client_id = Column(GUID, ForeignKey("clients.id", ondelete="CASCADE"), nullable=False)
 
     url = Column(Text, nullable=False)
-    visitor_type = Column(String(50), nullable=True)  # 'ai_bot', 'direct', 'worker_proxy'
+    visitor_type = Column(String(50), nullable=True)  # 'ai_bot', 'ai_referral', 'direct', 'worker_proxy'
     user_agent = Column(Text, nullable=True)
     ip_hash = Column(Text, nullable=True)  # Hashed IP for privacy
     referrer = Column(Text, nullable=True)
-    bot_name = Column(Text, nullable=True)  # e.g., 'GPTBot', 'ClaudeBot', 'Googlebot'
+
+    # Bot crawler detection (from user_agent) - e.g., 'GPTBot', 'ClaudeBot', 'PerplexityBot'
+    bot_name = Column(Text, nullable=True)
+
+    # AI chat app attribution (from referrer) - e.g., 'ChatGPT', 'Perplexity', 'Claude'
+    ai_source = Column(String(100), nullable=True, index=True)
 
     visited_at = Column(DateTime, nullable=False, server_default=func.now())
 
@@ -343,6 +352,7 @@ class Visit(Base):
             "ip_hash": self.ip_hash,
             "referrer": self.referrer,
             "bot_name": self.bot_name,
+            "ai_source": self.ai_source,
             "visited_at": self.visited_at.isoformat() if self.visited_at else None,
         }
 
@@ -418,15 +428,15 @@ class PageAnalytics(Base):
         }
 
 
-class Conversion(Base):
+class Order(Base):
     """
-    Conversion tracking for AI referrer attribution.
+    Order tracking for AI referrer attribution.
 
-    Tracks conversions (orders) and attributes them to AI sources based on referrer.
-    Used for ROI analysis of AI bot traffic.
+    Tracks e-commerce orders and attributes them to AI sources based on referrer.
+    Used for ROI analysis of AI-driven traffic from chat apps like ChatGPT, Perplexity, etc.
     """
 
-    __tablename__ = "conversions"
+    __tablename__ = "orders"
 
     id = Column(GUID, primary_key=True, default=uuid4)
     client_id = Column(GUID, ForeignKey("clients.id", ondelete="CASCADE"), nullable=False, index=True)
@@ -449,15 +459,15 @@ class Conversion(Base):
     created_at = Column(DateTime, nullable=False, server_default=func.now())
 
     # Relationships
-    client = relationship("Client", backref="conversions")
-    page = relationship("Page", backref="conversions")
+    client = relationship("Client", backref="orders")
+    page = relationship("Page", backref="orders")
 
     def __repr__(self) -> str:
-        return f"<Conversion {self.order_id} ai_source={self.ai_source} value={self.conversion_value}>"
+        return f"<Order {self.order_id} ai_source={self.ai_source} value={self.conversion_value}>"
 
     def to_dict(self) -> dict:
         """
-        Convert conversion to dictionary.
+        Convert order to dictionary.
 
         Returns:
             Dictionary representation

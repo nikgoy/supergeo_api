@@ -20,9 +20,11 @@ from app.services.visit_analytics import (
     get_visit_stats,
     get_dashboard_analytics,
     get_page_visit_stats,
-    get_top_bots,
+    get_top_bot_crawlers,
+    get_top_ai_sources,
     get_top_pages
 )
+from app.services.referrer_analytics import detect_ai_source_from_referrer
 
 visits_bp = Blueprint('visits', __name__, url_prefix='/api/v1/visits')
 
@@ -113,8 +115,11 @@ def record_visit():
         else:
             bot_detected = True
 
+        # Detect AI source from referrer
+        ai_source = detect_ai_source_from_referrer(referrer)
+
         # Determine visitor type
-        visitor_type = determine_visitor_type(user_agent, bot_name)
+        visitor_type = determine_visitor_type(user_agent, bot_name, ai_source)
 
         # Try to find page_id by URL if not provided
         if not page_id:
@@ -138,7 +143,8 @@ def record_visit():
             user_agent=user_agent,
             ip_hash=ip_hash,
             referrer=referrer,
-            bot_name=bot_name
+            bot_name=bot_name,
+            ai_source=ai_source
         )
 
         db.add(visit)
@@ -150,7 +156,8 @@ def record_visit():
             'visit_id': str(visit.id),
             'visitor_type': visitor_type,
             'bot_detected': bot_detected,
-            'bot_name': bot_name
+            'bot_name': bot_name,
+            'ai_source': ai_source
         }), 201
 
     except Exception as e:
@@ -227,12 +234,13 @@ def get_client_visits(client_id: UUID):
         # Get visit stats
         stats = get_visit_stats(client_id, start_date, end_date)
 
-        # Get top bots
+        # Get top lists
         days = 30  # Default to 30 days for top lists
         if start_date:
             days = max((datetime.utcnow() - start_date).days, 1)
 
-        stats['top_bots'] = get_top_bots(client_id, limit=10, days=days)
+        stats['top_bot_crawlers'] = get_top_bot_crawlers(client_id, limit=10, days=days)
+        stats['top_ai_sources'] = get_top_ai_sources(client_id, limit=10, days=days)
         stats['top_pages'] = get_top_pages(client_id, limit=10, days=days)
 
         return jsonify(stats), 200

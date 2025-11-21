@@ -12,7 +12,7 @@ from sqlalchemy import func, desc
 from sqlalchemy.orm import Session
 
 from app.models.base import SessionLocal
-from app.models.client import Client, Page, Visit, Conversion
+from app.models.client import Client, Page, Visit, Order
 
 
 # AI referrer domain patterns
@@ -96,30 +96,30 @@ def get_conversion_analytics(
     db = SessionLocal()
     try:
         # Build base query
-        query = db.query(Conversion).filter(Conversion.client_id == client_id)
+        query = db.query(Order).filter(Order.client_id == client_id)
 
         # Apply date filters if provided
         if start_date:
-            query = query.filter(Conversion.converted_at >= start_date)
+            query = query.filter(Order.converted_at >= start_date)
         if end_date:
-            query = query.filter(Conversion.converted_at <= end_date)
+            query = query.filter(Order.converted_at <= end_date)
 
         # Total conversions
         total_conversions = query.count()
 
         # Total revenue
         total_revenue = query.with_entities(
-            func.sum(Conversion.conversion_value)
+            func.sum(Order.conversion_value)
         ).scalar() or 0.0
 
         # AI conversions (with ai_source)
-        ai_conversions = query.filter(Conversion.ai_source.isnot(None)).count()
+        ai_conversions = query.filter(Order.ai_source.isnot(None)).count()
 
         # AI revenue
         ai_revenue = query.filter(
-            Conversion.ai_source.isnot(None)
+            Order.ai_source.isnot(None)
         ).with_entities(
-            func.sum(Conversion.conversion_value)
+            func.sum(Order.conversion_value)
         ).scalar() or 0.0
 
         # Calculate percentages
@@ -161,23 +161,23 @@ def get_conversions_by_ai_source(
     try:
         # Build base query
         query = db.query(
-            Conversion.ai_source,
-            func.count(Conversion.id).label('conversion_count'),
-            func.sum(Conversion.conversion_value).label('total_revenue')
+            Order.ai_source,
+            func.count(Order.id).label('conversion_count'),
+            func.sum(Order.conversion_value).label('total_revenue')
         ).filter(
-            Conversion.client_id == client_id,
-            Conversion.ai_source.isnot(None)
+            Order.client_id == client_id,
+            Order.ai_source.isnot(None)
         )
 
         # Apply date filters
         if start_date:
-            query = query.filter(Conversion.converted_at >= start_date)
+            query = query.filter(Order.converted_at >= start_date)
         if end_date:
-            query = query.filter(Conversion.converted_at <= end_date)
+            query = query.filter(Order.converted_at <= end_date)
 
         # Group and order
         results = query.group_by(
-            Conversion.ai_source
+            Order.ai_source
         ).order_by(
             desc('total_revenue')
         ).all()
@@ -217,16 +217,16 @@ def get_top_converting_pages(
         start_date = datetime.utcnow() - timedelta(days=days)
 
         results = db.query(
-            Conversion.landing_url,
-            Conversion.page_id,
-            func.count(Conversion.id).label('conversion_count'),
-            func.sum(Conversion.conversion_value).label('total_revenue')
+            Order.landing_url,
+            Order.page_id,
+            func.count(Order.id).label('conversion_count'),
+            func.sum(Order.conversion_value).label('total_revenue')
         ).filter(
-            Conversion.client_id == client_id,
-            Conversion.converted_at >= start_date
+            Order.client_id == client_id,
+            Order.converted_at >= start_date
         ).group_by(
-            Conversion.landing_url,
-            Conversion.page_id
+            Order.landing_url,
+            Order.page_id
         ).order_by(
             desc('conversion_count')
         ).limit(limit).all()
@@ -267,21 +267,21 @@ def get_conversions_time_series(
     try:
         # Determine date truncation based on interval
         if interval == 'hour':
-            date_trunc = func.date_trunc('hour', Conversion.converted_at)
+            date_trunc = func.date_trunc('hour', Order.converted_at)
         elif interval == 'week':
-            date_trunc = func.date_trunc('week', Conversion.converted_at)
+            date_trunc = func.date_trunc('week', Order.converted_at)
         else:  # default to day
-            date_trunc = func.date_trunc('day', Conversion.converted_at)
+            date_trunc = func.date_trunc('day', Order.converted_at)
 
         # Query conversions
         results = db.query(
             date_trunc.label('date'),
-            func.count(Conversion.id).label('conversion_count'),
-            func.sum(Conversion.conversion_value).label('revenue')
+            func.count(Order.id).label('conversion_count'),
+            func.sum(Order.conversion_value).label('revenue')
         ).filter(
-            Conversion.client_id == client_id,
-            Conversion.converted_at >= start_date,
-            Conversion.converted_at <= end_date
+            Order.client_id == client_id,
+            Order.converted_at >= start_date,
+            Order.converted_at <= end_date
         ).group_by(
             date_trunc
         ).order_by(

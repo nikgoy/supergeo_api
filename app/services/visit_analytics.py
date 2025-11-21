@@ -2,7 +2,8 @@
 Visit analytics service.
 
 Provides analytics and aggregation for visit tracking data.
-Supports time series, top bots, top pages, and dashboard metrics.
+Separates bot crawl analytics from AI referral analytics.
+Supports time series, top bots, top AI sources, and dashboard metrics.
 """
 from typing import Dict, List, Optional
 from uuid import UUID
@@ -14,12 +15,10 @@ from app.models.base import SessionLocal
 from app.models.client import Visit, Page
 
 
-# Known AI bot patterns for auto-detection
+# Known AI bot patterns for auto-detection (crawler bots)
 AI_BOT_PATTERNS = [
-    'ChatGPT-User',
     'GPTBot',
     'PerplexityBot',
-    'Claude-Web',
     'ClaudeBot',
     'anthropic-ai',
     'Googlebot',
@@ -37,7 +36,7 @@ AI_BOT_PATTERNS = [
 
 def detect_bot_from_user_agent(user_agent: str) -> Optional[str]:
     """
-    Detect bot name from user agent string.
+    Detect bot crawler name from user agent string.
 
     Args:
         user_agent: User agent string
@@ -58,31 +57,37 @@ def detect_bot_from_user_agent(user_agent: str) -> Optional[str]:
     return None
 
 
-def determine_visitor_type(user_agent: str, bot_name: Optional[str] = None) -> str:
+def determine_visitor_type(user_agent: str, bot_name: Optional[str] = None, ai_source: Optional[str] = None) -> str:
     """
-    Determine visitor type from user agent and bot name.
+    Determine visitor type from user agent, bot name, and AI source.
 
     Args:
         user_agent: User agent string
-        bot_name: Explicitly provided bot name
+        bot_name: Explicitly provided bot name (crawler)
+        ai_source: AI chat app source (from referrer)
 
     Returns:
-        'ai_bot', 'direct', or 'worker_proxy'
+        'ai_bot', 'ai_referral', 'direct', or 'worker_proxy'
     """
+    # Bot crawler detected
     if bot_name:
         return 'ai_bot'
 
-    # Auto-detect bot
+    # Auto-detect bot from user agent
     detected_bot = detect_bot_from_user_agent(user_agent)
     if detected_bot:
         return 'ai_bot'
 
+    # AI chat app referrer detected
+    if ai_source:
+        return 'ai_referral'
+
     return 'direct'
 
 
-def get_top_bots(client_id: UUID, limit: int = 10, days: int = 30) -> List[Dict]:
+def get_top_bot_crawlers(client_id: UUID, limit: int = 10, days: int = 30) -> List[Dict]:
     """
-    Get top bots by visit count.
+    Get top bot crawlers by crawl count.
 
     Args:
         client_id: Client UUID
@@ -90,7 +95,7 @@ def get_top_bots(client_id: UUID, limit: int = 10, days: int = 30) -> List[Dict]
         days: Number of days to look back
 
     Returns:
-        List of dictionaries with bot_name and count
+        List of dictionaries with bot_name and crawl_count
     """
     db = SessionLocal()
     try:
@@ -113,9 +118,51 @@ def get_top_bots(client_id: UUID, limit: int = 10, days: int = 30) -> List[Dict]
         return [
             {
                 'bot_name': bot_name,
-                'count': count
+                'crawl_count': count
             }
             for bot_name, count in results
+        ]
+
+    finally:
+        db.close()
+
+
+def get_top_ai_sources(client_id: UUID, limit: int = 10, days: int = 30) -> List[Dict]:
+    """
+    Get top AI chat app sources by visit count.
+
+    Args:
+        client_id: Client UUID
+        limit: Maximum number of results
+        days: Number of days to look back
+
+    Returns:
+        List of dictionaries with ai_source and visit_count
+    """
+    db = SessionLocal()
+    try:
+        start_date = datetime.utcnow() - timedelta(days=days)
+
+        results = db.query(
+            Visit.ai_source,
+            func.count(Visit.id).label('count')
+        ).filter(
+            Visit.client_id == client_id,
+            Visit.visitor_type == 'ai_referral',
+            Visit.ai_source.isnot(None),
+            Visit.visited_at >= start_date
+        ).group_by(
+            Visit.ai_source
+        ).order_by(
+            desc('count')
+        ).limit(limit).all()
+
+        return [
+            {
+                'ai_source': ai_source,
+                'visit_count': count
+            }
+            for ai_source, count in results
         ]
 
     finally:
@@ -172,7 +219,7 @@ def get_visits_time_series(
     interval: str = 'day'
 ) -> List[Dict]:
     """
-    Get visits time series data.
+    Get visits time series data with bot crawls and AI referrals separated.
 
     Args:
         client_id: Client UUID
@@ -181,7 +228,7 @@ def get_visits_time_series(
         interval: Interval ('hour', 'day', 'week')
 
     Returns:
-        List of dictionaries with date, bot_visits, and human_visits
+        List of dictionaries with date, bot_crawls, ai_referrals, and direct_visits
     """
     db = SessionLocal()
     try:
@@ -193,7 +240,7 @@ def get_visits_time_series(
         else:  # default to day
             date_trunc = func.date_trunc('day', Visit.visited_at)
 
-        # Query for bot visits
+        # Query for bot crawls
         bot_results = db.query(
             date_trunc.label('date'),
             func.count(Visit.id).label('count')
@@ -206,8 +253,21 @@ def get_visits_time_series(
             date_trunc
         ).all()
 
-        # Query for human visits
-        human_results = db.query(
+        # Query for AI referrals
+        ai_referral_results = db.query(
+            date_trunc.label('date'),
+            func.count(Visit.id).label('count')
+        ).filter(
+            Visit.client_id == client_id,
+            Visit.visitor_type == 'ai_referral',
+            Visit.visited_at >= start_date,
+            Visit.visited_at <= end_date
+        ).group_by(
+            date_trunc
+        ).all()
+
+        # Query for direct visits
+        direct_results = db.query(
             date_trunc.label('date'),
             func.count(Visit.id).label('count')
         ).filter(
@@ -221,18 +281,24 @@ def get_visits_time_series(
 
         # Combine results
         bot_dict = {date: count for date, count in bot_results}
-        human_dict = {date: count for date, count in human_results}
+        ai_referral_dict = {date: count for date, count in ai_referral_results}
+        direct_dict = {date: count for date, count in direct_results}
 
         # Get all unique dates
-        all_dates = sorted(set(bot_dict.keys()) | set(human_dict.keys()))
+        all_dates = sorted(set(bot_dict.keys()) | set(ai_referral_dict.keys()) | set(direct_dict.keys()))
 
         time_series = []
         for date in all_dates:
+            bot_crawls = bot_dict.get(date, 0)
+            ai_referrals = ai_referral_dict.get(date, 0)
+            direct_visits = direct_dict.get(date, 0)
+
             time_series.append({
                 'date': date.isoformat() if date else None,
-                'bot_visits': bot_dict.get(date, 0),
-                'human_visits': human_dict.get(date, 0),
-                'total_visits': bot_dict.get(date, 0) + human_dict.get(date, 0)
+                'bot_crawls': bot_crawls,
+                'ai_referrals': ai_referrals,
+                'direct_visits': direct_visits,
+                'total_visits': bot_crawls + ai_referrals + direct_visits
             })
 
         return time_series
@@ -247,7 +313,7 @@ def get_visit_stats(
     end_date: Optional[datetime] = None
 ) -> Dict:
     """
-    Get visit statistics for a client.
+    Get visit statistics for a client with bot crawls and AI referrals separated.
 
     Args:
         client_id: Client UUID
@@ -271,26 +337,32 @@ def get_visit_stats(
         # Total visits
         total_visits = query.count()
 
-        # Bot visits
-        bot_visits = query.filter(Visit.visitor_type == 'ai_bot').count()
+        # Bot crawls
+        bot_crawls = query.filter(Visit.visitor_type == 'ai_bot').count()
 
-        # Human visits
-        human_visits = query.filter(Visit.visitor_type == 'direct').count()
+        # AI referrals
+        ai_referrals = query.filter(Visit.visitor_type == 'ai_referral').count()
+
+        # Direct visits
+        direct_visits = query.filter(Visit.visitor_type == 'direct').count()
 
         # Unique pages visited
         unique_pages = query.with_entities(Visit.url).distinct().count()
 
         # Calculate percentages
-        bot_percentage = (bot_visits / total_visits * 100) if total_visits > 0 else 0
-        human_percentage = (human_visits / total_visits * 100) if total_visits > 0 else 0
+        bot_crawl_percentage = (bot_crawls / total_visits * 100) if total_visits > 0 else 0
+        ai_referral_percentage = (ai_referrals / total_visits * 100) if total_visits > 0 else 0
+        direct_percentage = (direct_visits / total_visits * 100) if total_visits > 0 else 0
 
         return {
             'total_visits': total_visits,
-            'bot_visits': bot_visits,
-            'human_visits': human_visits,
+            'bot_crawls': bot_crawls,
+            'ai_referrals': ai_referrals,
+            'direct_visits': direct_visits,
             'unique_pages': unique_pages,
-            'bot_percentage': round(bot_percentage, 2),
-            'human_percentage': round(human_percentage, 2),
+            'bot_crawl_percentage': round(bot_crawl_percentage, 2),
+            'ai_referral_percentage': round(ai_referral_percentage, 2),
+            'direct_percentage': round(direct_percentage, 2),
             'start_date': start_date.isoformat() if start_date else None,
             'end_date': end_date.isoformat() if end_date else None
         }
@@ -301,7 +373,7 @@ def get_visit_stats(
 
 def get_dashboard_analytics(client_id: UUID, days: int = 30) -> Dict:
     """
-    Get comprehensive dashboard analytics.
+    Get comprehensive dashboard analytics with bot crawls and AI referrals separated.
 
     Args:
         client_id: Client UUID
@@ -316,8 +388,11 @@ def get_dashboard_analytics(client_id: UUID, days: int = 30) -> Dict:
     # Get basic stats
     stats = get_visit_stats(client_id, start_date, end_date)
 
-    # Get top bots
-    top_bots = get_top_bots(client_id, limit=10, days=days)
+    # Get top bot crawlers
+    top_bots = get_top_bot_crawlers(client_id, limit=10, days=days)
+
+    # Get top AI sources
+    top_ai_sources = get_top_ai_sources(client_id, limit=10, days=days)
 
     # Get top pages
     top_pages = get_top_pages(client_id, limit=10, days=days)
@@ -330,12 +405,20 @@ def get_dashboard_analytics(client_id: UUID, days: int = 30) -> Dict:
         interval='day'
     )
 
-    # Bot breakdown (pie chart data)
+    # Bot crawler breakdown (pie chart data)
     bot_breakdown = []
     for bot in top_bots:
         bot_breakdown.append({
             'name': bot['bot_name'],
-            'value': bot['count']
+            'value': bot['crawl_count']
+        })
+
+    # AI source breakdown (pie chart data)
+    ai_source_breakdown = []
+    for source in top_ai_sources:
+        ai_source_breakdown.append({
+            'name': source['ai_source'],
+            'value': source['visit_count']
         })
 
     # Page breakdown (bar chart data)
@@ -350,8 +433,10 @@ def get_dashboard_analytics(client_id: UUID, days: int = 30) -> Dict:
         'summary': stats,
         'time_series': time_series,
         'bot_breakdown': bot_breakdown,
+        'ai_source_breakdown': ai_source_breakdown,
         'page_breakdown': page_breakdown,
         'top_bots': top_bots,
+        'top_ai_sources': top_ai_sources,
         'top_pages': top_pages,
         'period_days': days
     }
@@ -386,14 +471,20 @@ def get_page_visit_stats(page_id: UUID, limit: int = 100) -> Dict:
         # Total visits
         total_visits = db.query(Visit).filter(Visit.page_id == page_id).count()
 
-        # Bot visits
-        bot_visits = db.query(Visit).filter(
+        # Bot crawls
+        bot_crawls = db.query(Visit).filter(
             Visit.page_id == page_id,
             Visit.visitor_type == 'ai_bot'
         ).count()
 
-        # Human visits
-        human_visits = db.query(Visit).filter(
+        # AI referrals
+        ai_referrals = db.query(Visit).filter(
+            Visit.page_id == page_id,
+            Visit.visitor_type == 'ai_referral'
+        ).count()
+
+        # Direct visits
+        direct_visits = db.query(Visit).filter(
             Visit.page_id == page_id,
             Visit.visitor_type == 'direct'
         ).count()
@@ -402,8 +493,9 @@ def get_page_visit_stats(page_id: UUID, limit: int = 100) -> Dict:
             'page_id': str(page_id),
             'url': page.url,
             'total_visits': total_visits,
-            'bot_visits': bot_visits,
-            'human_visits': human_visits,
+            'bot_crawls': bot_crawls,
+            'ai_referrals': ai_referrals,
+            'direct_visits': direct_visits,
             'visits': [visit.to_dict() for visit in visits]
         }
 

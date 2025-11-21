@@ -14,7 +14,7 @@ from sqlalchemy.exc import IntegrityError
 
 from app.middleware.auth import require_api_key
 from app.models.base import SessionLocal
-from app.models.client import Client, Page, Visit, Conversion
+from app.models.client import Client, Page, Visit, Order
 from app.services.referrer_analytics import (
     detect_ai_source_from_referrer,
     extract_referrer_domain,
@@ -31,7 +31,7 @@ def track_pixel_event():
     Track pixel event from Shopify store.
 
     Handles page_view and checkout_completed events. Creates Visit records
-    for page views and Conversion records for checkouts.
+    for page views and Order records for checkouts.
 
     Request body:
         {
@@ -145,14 +145,17 @@ def track_pixel_event():
 
         # Handle different event types
         if event_type == 'page_view':
+            # Determine visitor type based on AI source
+            visitor_type = 'ai_referral' if ai_source else 'direct'
+
             # Create Visit record
             visit = Visit(
                 client_id=client.id,
                 page_id=page_id,
                 url=url,
-                visitor_type='direct',  # Pixel events are from actual visitors
+                visitor_type=visitor_type,  # ai_referral if from AI chat app, else direct
                 referrer=referrer,
-                bot_name=ai_source if ai_source else None,
+                ai_source=ai_source,
                 visited_at=timestamp
             )
 
@@ -176,8 +179,8 @@ def track_pixel_event():
             order_value = data.get('order_value')
 
             # Check for duplicate order_id
-            existing = db.query(Conversion).filter(
-                Conversion.order_id == order_id
+            existing = db.query(Order).filter(
+                Order.order_id == order_id
             ).first()
 
             if existing:
@@ -185,13 +188,13 @@ def track_pixel_event():
                 return jsonify({
                     'success': True,
                     'event_type': 'checkout_completed',
-                    'conversion_id': str(existing.id),
+                    'order_id': str(existing.id),
                     'duplicate': True,
-                    'message': 'Conversion already tracked'
+                    'message': 'Order already tracked'
                 }), 200
 
-            # Create Conversion record
-            conversion = Conversion(
+            # Create Order record
+            order = Order(
                 client_id=client.id,
                 page_id=page_id,
                 referrer_domain=referrer_domain,
@@ -204,15 +207,15 @@ def track_pixel_event():
                 event_type='checkout_completed'
             )
 
-            db.add(conversion)
+            db.add(order)
             db.commit()
-            db.refresh(conversion)
+            db.refresh(order)
 
             return jsonify({
                 'success': True,
                 'event_type': 'checkout_completed',
                 'ai_source': ai_source,
-                'conversion_id': str(conversion.id),
+                'order_id': str(order.id),
                 'conversion_value': order_value
             }), 200
 
@@ -227,7 +230,7 @@ def track_pixel_event():
         db.rollback()
         # Handle unique constraint violations
         return jsonify({
-            'error': 'Duplicate conversion',
+            'error': 'Duplicate order',
             'message': 'This order has already been tracked'
         }), 409
     except Exception as e:
