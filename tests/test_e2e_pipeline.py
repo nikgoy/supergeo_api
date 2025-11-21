@@ -80,25 +80,34 @@ class TestE2EPipeline:
     @pytest.fixture
     def mock_gemini_client(self):
         """Mock Gemini AI client."""
-        with patch('google.generativeai.GenerativeModel') as mock:
-            model_instance = MagicMock()
+        with patch('google.genai.Client') as mock_client_class:
+            # Mock client instance
+            client_instance = MagicMock()
 
-            # Mock markdown cleaning response
-            response_markdown = MagicMock()
-            response_markdown.text = MOCK_GEMINI_LLM_MARKDOWN
+            # Mock models.generate_content method
+            mock_models = MagicMock()
 
-            # Mock HTML generation response
-            response_html = MagicMock()
-            response_html.text = MOCK_GEMINI_GEO_HTML
+            def mock_generate_content(model, contents):
+                """Return appropriate response based on prompt content."""
+                response = MagicMock()
+                # If prompt asks for HTML, return HTML
+                if 'html' in contents.lower() or 'seo' in contents.lower():
+                    response.text = MOCK_GEMINI_GEO_HTML
+                else:
+                    # Otherwise return cleaned markdown
+                    response.text = MOCK_GEMINI_LLM_MARKDOWN
+                return response
 
-            # Make generate_content return different responses based on call
-            model_instance.generate_content.side_effect = [
-                response_markdown,
-                response_html
-            ] * 20  # Repeat for multiple pages
+            mock_models.generate_content.side_effect = mock_generate_content
 
-            mock.return_value = model_instance
-            yield mock
+            client_instance.models = mock_models
+
+            # Support context manager
+            client_instance.__enter__ = MagicMock(return_value=client_instance)
+            client_instance.__exit__ = MagicMock(return_value=False)
+
+            mock_client_class.return_value = client_instance
+            yield mock_client_class
 
     @pytest.fixture
     def mock_cloudflare_client(self):
@@ -236,20 +245,13 @@ class TestE2EPipeline:
         # This will fail initially because endpoint doesn't exist yet
         # That's expected - the test defines the contract
         # When implemented, it should return:
-        # assert gemini_response.status_code == 200
-        # gemini_data = gemini_response.get_json()
-        # assert gemini_data['processed'] == 10
-
-        # For now, manually simulate Gemini processing
-        db.expire_all()
-        pages = db.query(Page).filter(Page.client_id == pipeline_client.id).all()
-        for page in pages:
-            page.llm_markdown = MOCK_GEMINI_LLM_MARKDOWN
-            page.geo_html = MOCK_GEMINI_GEO_HTML
-            page.last_processed_at = datetime.utcnow()
-        db.commit()
+        assert gemini_response.status_code == 200
+        gemini_data = gemini_response.get_json()
+        assert gemini_data['processed'] == 10
 
         # Verify processing completed
+        db.expire_all()
+        pages = db.query(Page).filter(Page.client_id == pipeline_client.id).all()
         for page in pages:
             assert page.llm_markdown is not None
             assert page.geo_html is not None

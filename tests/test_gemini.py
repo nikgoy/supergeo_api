@@ -20,8 +20,9 @@ from tests.fixtures.test_data import (
 @pytest.fixture
 def gemini_client(db):
     """Create a client with Gemini API key for testing."""
+    import uuid
     client = Client(
-        name="Gemini Test Client",
+        name=f"Gemini Test Client {uuid.uuid4()}",
         domain="gemini-test.com",
         is_active=True
     )
@@ -80,25 +81,34 @@ def pages_for_batch(db, gemini_client):
 @pytest.fixture
 def mock_gemini_api():
     """Mock Gemini API responses."""
-    with patch('google.generativeai.GenerativeModel') as mock_model:
-        model_instance = MagicMock()
+    with patch('google.genai.Client') as mock_client_class:
+        # Mock client instance
+        client_instance = MagicMock()
 
-        # Mock response for markdown cleaning
-        response_markdown = MagicMock()
-        response_markdown.text = MOCK_GEMINI_LLM_MARKDOWN
+        # Mock models.generate_content method
+        mock_models = MagicMock()
 
-        # Mock response for HTML generation
-        response_html = MagicMock()
-        response_html.text = MOCK_GEMINI_GEO_HTML
+        def mock_generate_content(model, contents):
+            """Return appropriate response based on prompt content."""
+            response = MagicMock()
+            # If prompt asks for HTML, return HTML
+            if 'html' in contents.lower() or 'seo' in contents.lower():
+                response.text = MOCK_GEMINI_GEO_HTML
+            else:
+                # Otherwise return cleaned markdown
+                response.text = MOCK_GEMINI_LLM_MARKDOWN
+            return response
 
-        # Alternate between responses
-        model_instance.generate_content.side_effect = [
-            response_markdown,
-            response_html,
-        ] * 50  # Support multiple calls
+        mock_models.generate_content.side_effect = mock_generate_content
 
-        mock_model.return_value = model_instance
-        yield mock_model
+        client_instance.models = mock_models
+
+        # Support context manager
+        client_instance.__enter__ = MagicMock(return_value=client_instance)
+        client_instance.__exit__ = MagicMock(return_value=False)
+
+        mock_client_class.return_value = client_instance
+        yield mock_client_class
 
 
 class TestGeminiService:
@@ -106,38 +116,37 @@ class TestGeminiService:
 
     def test_process_markdown_to_llm_format(self, mock_gemini_api):
         """Test converting raw markdown to LLM-optimized format."""
-        # This tests the service directly (when implemented)
-        # from app.services.gemini import GeminiService
-        #
-        # service = GeminiService(api_key=MOCK_CLIENT_DATA["gemini_api_key"])
-        # result = service.process_markdown(MOCK_APIFY_MARKDOWN)
-        #
-        # assert result is not None
-        # assert len(result) > 0
-        # assert "Premium Cotton T-Shirt" in result
+        from app.services.gemini import GeminiService
+
+        service = GeminiService(api_key=MOCK_CLIENT_DATA["gemini_api_key"])
+        result = service.process_markdown(MOCK_APIFY_MARKDOWN)
+
+        assert result is not None
+        assert len(result) > 0
+        assert "Premium Cotton T-Shirt" in result
 
     def test_generate_geo_html_from_markdown(self, mock_gemini_api):
         """Test generating GEO HTML from markdown."""
-        # from app.services.gemini import GeminiService
-        #
-        # service = GeminiService(api_key=MOCK_CLIENT_DATA["gemini_api_key"])
-        # result = service.generate_html(
-        #     markdown=MOCK_GEMINI_LLM_MARKDOWN,
-        #     url=MOCK_SITEMAP_URLS[0],
-        #     metadata={"title": "Test Product"}
-        # )
-        #
-        # assert result is not None
-        # assert "<!DOCTYPE html>" in result
-        # assert "<title>" in result
-        # assert "Premium Cotton T-Shirt" in result
+        from app.services.gemini import GeminiService
+
+        service = GeminiService(api_key=MOCK_CLIENT_DATA["gemini_api_key"])
+        result = service.generate_html(
+            markdown=MOCK_GEMINI_LLM_MARKDOWN,
+            url=MOCK_SITEMAP_URLS[0],
+            metadata={"title": "Test Product"}
+        )
+
+        assert result is not None
+        assert "<!DOCTYPE html>" in result
+        assert "<title>" in result
+        assert "Premium Cotton T-Shirt" in result
 
     def test_gemini_service_uses_client_key(self, gemini_client):
         """Test service uses client-specific Gemini API key."""
-        # from app.services.gemini import GeminiService
-        #
-        # service = GeminiService.from_client(gemini_client)
-        # assert service.api_key == gemini_client.gemini_api_key
+        from app.services.gemini import GeminiService
+
+        service = GeminiService.from_client(gemini_client)
+        assert service.api_key == gemini_client.gemini_api_key
 
 
 class TestGeminiAPIEndpoints:
@@ -160,20 +169,20 @@ class TestGeminiAPIEndpoints:
         )
 
         # Expected response when implemented
-        # assert response.status_code == 200
-        # data = response.get_json()
-        #
-        # assert data['success'] is True
-        # assert data['page_id'] == page_id
-        # assert 'llm_markdown_length' in data
-        # assert 'geo_html_length' in data
-        # assert 'processed_at' in data
+        assert response.status_code == 200
+        data = response.get_json()
+
+        assert data['success'] is True
+        assert data['page_id'] == page_id
+        assert 'llm_markdown_length' in data
+        assert 'geo_html_length' in data
+        assert 'processed_at' in data
 
         # Verify database updated
-        # db.refresh(page_with_markdown)
-        # assert page_with_markdown.llm_markdown is not None
-        # assert page_with_markdown.geo_html is not None
-        # assert page_with_markdown.last_processed_at is not None
+        db.refresh(page_with_markdown)
+        assert page_with_markdown.llm_markdown is not None
+        assert page_with_markdown.geo_html is not None
+        assert page_with_markdown.last_processed_at is not None
 
     def test_process_page_without_markdown(
         self,
@@ -200,10 +209,10 @@ class TestGeminiAPIEndpoints:
         )
 
         # Should return error
-        # assert response.status_code == 400
-        # data = response.get_json()
-        # assert 'error' in data
-        # assert 'raw_markdown' in data['error'].lower()
+        assert response.status_code == 400
+        data = response.get_json()
+        assert 'error' in data
+        assert 'raw_markdown' in data['error'].lower()
 
     def test_process_client_batch(
         self,
@@ -224,23 +233,23 @@ class TestGeminiAPIEndpoints:
         )
 
         # Expected response when implemented
-        # assert response.status_code == 200
-        # data = response.get_json()
-        #
-        # assert data['success'] is True
-        # assert data['processed'] == 5
-        # assert data['skipped'] == 0
-        # assert data['failed'] == 0
+        assert response.status_code == 200
+        data = response.get_json()
+
+        assert data['success'] is True
+        assert data['processed'] == 5
+        assert data['skipped'] == 0
+        assert data['failed'] == 0
 
         # Verify all pages processed
-        # db.expire_all()
-        # pages = db.query(Page).filter(
-        #     Page.client_id == gemini_client.id
-        # ).all()
-        #
-        # for page in pages:
-        #     assert page.llm_markdown is not None
-        #     assert page.geo_html is not None
+        db.expire_all()
+        pages = db.query(Page).filter(
+            Page.client_id == gemini_client.id
+        ).all()
+
+        for page in pages:
+            assert page.llm_markdown is not None
+            assert page.geo_html is not None
 
     def test_skip_already_processed_pages(
         self,
@@ -348,13 +357,13 @@ class TestGeminiAPIEndpoints:
         )
 
         # Expected response
-        # assert response.status_code == 200
-        # data = response.get_json()
-        #
-        # assert 'has_raw_markdown' in data
-        # assert 'has_llm_markdown' in data
-        # assert 'has_geo_html' in data
-        # assert 'last_processed_at' in data
+        assert response.status_code == 200
+        data = response.get_json()
+
+        assert 'has_raw_markdown' in data
+        assert 'has_llm_markdown' in data
+        assert 'has_geo_html' in data
+        assert 'last_processed_at' in data
 
 
 class TestGeminiErrorHandling:
