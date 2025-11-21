@@ -40,7 +40,7 @@ class Settings(BaseSettings):
 
     # Apify settings
     apify_timeout: int = Field(default=120, description="Timeout for Apify scraping in seconds")
-    apify_max_parallel: int = Field(default=5, description="Max parallel Apify scrape requests")
+    apify_max_parallel: int = Field(default=10, description="Max parallel Apify scrape requests")
     apify_max_retries: int = Field(default=3, description="Max retry attempts for failed scrapes")
 
     @field_validator("flask_env")
