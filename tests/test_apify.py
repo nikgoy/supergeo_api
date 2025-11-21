@@ -19,35 +19,23 @@ from app.models.client import Client, Page
 class TestApifyService:
     """Tests for ApifyRagService."""
 
-    @patch('app.services.apify_rag.ApifyClient')
-    def test_scrape_url_success(self, mock_apify_client_class):
+    @patch('app.services.apify_rag.requests.post')
+    def test_scrape_url_success(self, mock_post):
         """Test successful URL scraping."""
         from app.services.apify_rag import ApifyRagService
 
-        # Mock Apify client
-        mock_client = MagicMock()
-        mock_apify_client_class.return_value = mock_client
-
-        # Mock actor run
-        mock_run = {
-            'id': 'test_run_123',
-            'status': 'SUCCEEDED',
-            'defaultDatasetId': 'test_dataset_123',
-            'finishedAt': '2025-11-20T10:30:00Z'
-        }
-        mock_client.actor.return_value.call.return_value = mock_run
-
-        # Mock dataset items
-        mock_dataset = MagicMock()
-        mock_dataset.iterate_items.return_value = [
+        # Mock successful API response
+        mock_response = MagicMock()
+        mock_response.status_code = 200
+        mock_response.json.return_value = [
             {
                 'url': 'https://example.com',
                 'markdown': '# Test Page\n\nThis is test content.',
-                'title': 'Test Page',
-                'language': 'en'
+                'text': 'Test Page This is test content.',
+                'html': '<html>...</html>'
             }
         ]
-        mock_client.dataset.return_value = mock_dataset
+        mock_post.return_value = mock_response
 
         # Create service and scrape
         service = ApifyRagService(api_token='test-token')
@@ -56,26 +44,27 @@ class TestApifyService:
         # Assertions
         assert result['status'] == 'success'
         assert result['url'] == 'https://example.com'
-        assert result['run_id'] == 'test_run_123'
+        assert result['run_id'] is None
         assert result['markdown'] == '# Test Page\n\nThis is test content.'
-        assert result['metadata']['title'] == 'Test Page'
+        assert result['metadata']['crawled_url'] == 'https://example.com'
 
-    @patch('app.services.apify_rag.ApifyClient')
-    def test_scrape_url_failed(self, mock_apify_client_class):
+        # Verify the POST request was made correctly
+        mock_post.assert_called_once()
+        call_args = mock_post.call_args
+        assert 'token=test-token' in call_args[0][0]
+        assert call_args[1]['json']['query'] == 'https://example.com'
+        assert call_args[1]['json']['outputFormats'] == ['markdown']
+
+    @patch('app.services.apify_rag.requests.post')
+    def test_scrape_url_failed(self, mock_post):
         """Test failed URL scraping."""
         from app.services.apify_rag import ApifyRagService
 
-        # Mock Apify client
-        mock_client = MagicMock()
-        mock_apify_client_class.return_value = mock_client
-
-        # Mock failed run
-        mock_run = {
-            'id': 'test_run_456',
-            'status': 'FAILED',
-            'finishedAt': '2025-11-20T10:30:00Z'
-        }
-        mock_client.actor.return_value.call.return_value = mock_run
+        # Mock failed API response
+        mock_response = MagicMock()
+        mock_response.status_code = 500
+        mock_response.text = 'Internal Server Error'
+        mock_post.return_value = mock_response
 
         # Create service and scrape
         service = ApifyRagService(api_token='test-token', max_retries=1)
@@ -83,18 +72,16 @@ class TestApifyService:
 
         # Assertions
         assert result['status'] == 'failed'
-        assert result['run_id'] == 'test_run_456'
-        assert 'failed with status' in result['error']
+        assert result['run_id'] is None
+        assert 'Apify API returned status 500' in result['error']
 
-    @patch('app.services.apify_rag.ApifyClient')
-    def test_scrape_url_exception(self, mock_apify_client_class):
+    @patch('app.services.apify_rag.requests.post')
+    def test_scrape_url_exception(self, mock_post):
         """Test exception handling during scraping."""
         from app.services.apify_rag import ApifyRagService
 
-        # Mock Apify client to raise exception
-        mock_client = MagicMock()
-        mock_apify_client_class.return_value = mock_client
-        mock_client.actor.return_value.call.side_effect = Exception('Network error')
+        # Mock requests.post to raise exception
+        mock_post.side_effect = Exception('Network error')
 
         # Create service and scrape
         service = ApifyRagService(api_token='test-token', max_retries=1)
@@ -102,33 +89,31 @@ class TestApifyService:
 
         # Assertions
         assert result['status'] == 'failed'
+        assert result['run_id'] is None
         assert 'Network error' in result['error']
 
-    @patch('app.services.apify_rag.ApifyClient')
-    def test_scrape_urls_parallel(self, mock_apify_client_class):
+    @patch('app.services.apify_rag.requests.post')
+    def test_scrape_urls_parallel(self, mock_post):
         """Test parallel URL scraping."""
         from app.services.apify_rag import ApifyRagService
 
-        # Mock Apify client
-        mock_client = MagicMock()
-        mock_apify_client_class.return_value = mock_client
+        # Mock successful API responses
+        def mock_response(*args, **kwargs):
+            mock_resp = MagicMock()
+            mock_resp.status_code = 200
+            # Extract URL from the query parameter in the payload
+            url = kwargs['json']['query']
+            mock_resp.json.return_value = [
+                {
+                    'url': url,
+                    'markdown': f'Test content for {url}',
+                    'text': 'Test content',
+                    'html': '<html>...</html>'
+                }
+            ]
+            return mock_resp
 
-        # Mock successful runs
-        def mock_call(*args, **kwargs):
-            return {
-                'id': 'test_run',
-                'status': 'SUCCEEDED',
-                'defaultDatasetId': 'test_dataset'
-            }
-
-        mock_client.actor.return_value.call.side_effect = mock_call
-
-        # Mock dataset items
-        mock_dataset = MagicMock()
-        mock_dataset.iterate_items.return_value = [
-            {'url': 'https://example.com', 'markdown': 'Test content'}
-        ]
-        mock_client.dataset.return_value = mock_dataset
+        mock_post.side_effect = mock_response
 
         # Create service and scrape multiple URLs
         service = ApifyRagService(api_token='test-token')
@@ -142,6 +127,8 @@ class TestApifyService:
         # Assertions
         assert len(results) == 3
         assert all(r['status'] == 'success' for r in results)
+        assert all(r['run_id'] is None for r in results)
+        assert mock_post.call_count == 3
 
 
 class TestApifyAPI:
@@ -165,9 +152,9 @@ class TestApifyAPI:
         mock_scrape.return_value = {
             'status': 'success',
             'url': 'https://test.com/new-page',
-            'run_id': 'apify_run_123',
+            'run_id': None,
             'markdown': '# New Page\n\nContent here.',
-            'metadata': {'title': 'New Page'}
+            'metadata': {'crawled_url': 'https://test.com/new-page', 'markdown_length': 27}
         }
 
         # Make request
@@ -183,7 +170,7 @@ class TestApifyAPI:
         assert data['message'] == 'URL scraped successfully'
         assert data['scrape_result']['status'] == 'success'
         assert data['page']['has_raw_markdown'] is True
-        assert data['page']['apify_run_id'] == 'apify_run_123'
+        assert data['page']['apify_run_id'] is None
 
     @patch('app.api.apify.apify_rag_service.scrape_url')
     def test_scrape_single_url_by_url(self, mock_scrape, client, auth_headers, db, sample_client):
@@ -192,9 +179,9 @@ class TestApifyAPI:
         mock_scrape.return_value = {
             'status': 'success',
             'url': 'https://test.com/dynamic-page',
-            'run_id': 'apify_run_456',
+            'run_id': None,
             'markdown': '# Dynamic Page\n\nContent.',
-            'metadata': {}
+            'metadata': {'crawled_url': 'https://test.com/dynamic-page', 'markdown_length': 24}
         }
 
         # Make request (page doesn't exist, will be created)
@@ -238,9 +225,9 @@ class TestApifyAPI:
         mock_scrape.return_value = {
             'status': 'success',
             'url': sample_page.url,
-            'run_id': 'apify_run_789',
+            'run_id': None,
             'markdown': '# Updated Content',
-            'metadata': {}
+            'metadata': {'crawled_url': sample_page.url, 'markdown_length': 18}
         }
 
         # Make request with force_rescrape
@@ -277,7 +264,7 @@ class TestApifyAPI:
         mock_scrape.return_value = {
             'status': 'failed',
             'url': 'https://test.com/failing-page',
-            'run_id': 'apify_run_fail',
+            'run_id': None,
             'error': 'Timeout error'
         }
 
@@ -328,8 +315,9 @@ class TestApifyAPI:
             {
                 'status': 'success',
                 'url': f'https://test.com/page{i}',
-                'run_id': f'run_{i}',
-                'markdown': f'# Page {i}'
+                'run_id': None,
+                'markdown': f'# Page {i}',
+                'metadata': {'crawled_url': f'https://test.com/page{i}', 'markdown_length': 9}
             }
             for i in range(3)
         ]
@@ -367,9 +355,9 @@ class TestApifyAPI:
 
         # Mock parallel scraping with 1 failure
         mock_scrape_parallel.return_value = [
-            {'status': 'success', 'url': 'https://test.com/page0', 'run_id': 'run_0', 'markdown': '# Page 0'},
-            {'status': 'failed', 'url': 'https://test.com/page1', 'run_id': 'run_1', 'error': 'Timeout'},
-            {'status': 'success', 'url': 'https://test.com/page2', 'run_id': 'run_2', 'markdown': '# Page 2'},
+            {'status': 'success', 'url': 'https://test.com/page0', 'run_id': None, 'markdown': '# Page 0', 'metadata': {}},
+            {'status': 'failed', 'url': 'https://test.com/page1', 'run_id': None, 'error': 'Timeout'},
+            {'status': 'success', 'url': 'https://test.com/page2', 'run_id': None, 'markdown': '# Page 2', 'metadata': {}},
         ]
 
         # Make request
@@ -433,11 +421,11 @@ class TestApifyAPI:
         db.commit()
         db.refresh(page)
 
-        # Mock Apify run status
+        # Mock Apify run status (now deprecated)
         mock_get_status.return_value = {
             'run_id': 'run_status_123',
-            'status': 'SUCCEEDED',
-            'finished_at': '2025-11-20T10:30:00Z'
+            'status': 'not_supported',
+            'error': 'Run status tracking is not supported with the new direct API implementation'
         }
 
         # Make request
@@ -452,7 +440,7 @@ class TestApifyAPI:
         assert data['page_id'] == str(page.id)
         assert data['has_raw_markdown'] is True
         assert data['apify_run_id'] == 'run_status_123'
-        assert data['apify_run_status']['status'] == 'SUCCEEDED'
+        assert data['apify_run_status']['status'] == 'not_supported'
 
     def test_get_scrape_status_page_not_found(self, client, auth_headers):
         """Test getting status for non-existent page."""
