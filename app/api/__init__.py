@@ -7,6 +7,7 @@ from app.api.apify import apify_bp
 from app.api.gemini import gemini_bp
 from app.api.cloudflare_kv import cloudflare_kv_bp
 from app.api.cloudflare_worker import cloudflare_worker_bp
+from app.api.status import status_bp
 
 __all__ = [
     "health_bp",
@@ -17,4 +18,5 @@ __all__ = [
     "gemini_bp",
     "cloudflare_kv_bp",
     "cloudflare_worker_bp",
+    "status_bp",
 ]
