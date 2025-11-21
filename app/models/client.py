@@ -76,6 +76,12 @@ class Client(Base):
     cloudflare_account_id = Column(Text, nullable=True)
     cloudflare_api_token_encrypted = Column(LargeBinary, nullable=True)
     cloudflare_kv_namespace_id = Column(Text, nullable=True)
+    cloudflare_zone_id = Column(Text, nullable=True)  # Zone ID for Workers routing
+
+    # Cloudflare Worker metadata
+    worker_script_name = Column(Text, nullable=True)  # Deployed worker script name
+    worker_deployed_at = Column(DateTime, nullable=True)  # When worker was deployed
+    worker_route_id = Column(Text, nullable=True)  # Route ID connecting worker to zone
 
     # Optional per-client Gemini API key (encrypted)
     gemini_api_key_encrypted = Column(LargeBinary, nullable=True)
@@ -143,6 +149,10 @@ class Client(Base):
             "domain": self.domain,
             "cloudflare_account_id": self.cloudflare_account_id,
             "cloudflare_kv_namespace_id": self.cloudflare_kv_namespace_id,
+            "cloudflare_zone_id": self.cloudflare_zone_id,
+            "worker_script_name": self.worker_script_name,
+            "worker_deployed_at": self.worker_deployed_at.isoformat() if self.worker_deployed_at else None,
+            "worker_route_id": self.worker_route_id,
             "is_active": self.is_active,
             "created_at": self.created_at.isoformat() if self.created_at else None,
             "updated_at": self.updated_at.isoformat() if self.updated_at else None,
