@@ -406,3 +406,63 @@ class PageAnalytics(Base):
             "created_at": self.created_at.isoformat() if self.created_at else None,
             "updated_at": self.updated_at.isoformat() if self.updated_at else None,
         }
+
+
+class Conversion(Base):
+    """
+    Conversion tracking for AI referrer attribution.
+
+    Tracks conversions (orders) and attributes them to AI sources based on referrer.
+    Used for ROI analysis of AI bot traffic.
+    """
+
+    __tablename__ = "conversions"
+
+    id = Column(GUID, primary_key=True, default=uuid4)
+    client_id = Column(GUID, ForeignKey("clients.id", ondelete="CASCADE"), nullable=False, index=True)
+    page_id = Column(GUID, ForeignKey("pages.id", ondelete="SET NULL"), nullable=True)
+
+    # Referrer information
+    referrer_domain = Column(String(255), nullable=True, index=True)
+    referrer_full_url = Column(Text, nullable=True)
+    landing_url = Column(Text, nullable=False)
+
+    # Conversion data
+    converted_at = Column(DateTime, nullable=False, server_default=func.now(), index=True)
+    conversion_value = Column(Float, nullable=True)  # Order value in default currency
+    order_id = Column(String(255), nullable=True, unique=True, index=True)  # Shopify order ID
+
+    # AI attribution
+    ai_source = Column(String(100), nullable=True, index=True)  # ChatGPT, Perplexity, Claude, etc.
+    event_type = Column(String(50), nullable=False, default='checkout_completed')  # Event type from pixel
+
+    created_at = Column(DateTime, nullable=False, server_default=func.now())
+
+    # Relationships
+    client = relationship("Client", backref="conversions")
+    page = relationship("Page", backref="conversions")
+
+    def __repr__(self) -> str:
+        return f"<Conversion {self.order_id} ai_source={self.ai_source} value={self.conversion_value}>"
+
+    def to_dict(self) -> dict:
+        """
+        Convert conversion to dictionary.
+
+        Returns:
+            Dictionary representation
+        """
+        return {
+            "id": str(self.id),
+            "client_id": str(self.client_id),
+            "page_id": str(self.page_id) if self.page_id else None,
+            "referrer_domain": self.referrer_domain,
+            "referrer_full_url": self.referrer_full_url,
+            "landing_url": self.landing_url,
+            "converted_at": self.converted_at.isoformat() if self.converted_at else None,
+            "conversion_value": self.conversion_value,
+            "order_id": self.order_id,
+            "ai_source": self.ai_source,
+            "event_type": self.event_type,
+            "created_at": self.created_at.isoformat() if self.created_at else None,
+        }
