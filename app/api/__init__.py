@@ -8,6 +8,7 @@ from app.api.gemini import gemini_bp
 from app.api.cloudflare_kv import cloudflare_kv_bp
 from app.api.cloudflare_worker import cloudflare_worker_bp
 from app.api.status import status_bp
+from app.api.llms_txt import llms_txt_bp
 
 __all__ = [
     "health_bp",
@@ -19,4 +20,5 @@ __all__ = [
     "cloudflare_kv_bp",
     "cloudflare_worker_bp",
     "status_bp",
+    "llms_txt_bp",
 ]
