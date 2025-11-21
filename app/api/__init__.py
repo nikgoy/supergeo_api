@@ -11,6 +11,7 @@ from app.api.status import status_bp
 from app.api.llms_txt import llms_txt_bp
 from app.api.app_proxy import app_proxy_bp
 from app.api.visits import visits_bp
+from app.api.pixel import pixel_bp
 
 __all__ = [
     "health_bp",
@@ -25,4 +26,5 @@ __all__ = [
     "llms_txt_bp",
     "app_proxy_bp",
     "visits_bp",
+    "pixel_bp",
 ]

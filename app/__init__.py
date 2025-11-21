@@ -47,7 +47,7 @@ def create_app(config_override: dict = None) -> Flask:
         print("Please ensure DATABASE_URL is set correctly in your .env file")
 
     # Register blueprints
-    from app.api import health_bp, clients_bp, sitemap_bp, page_analytics_bp, apify_bp, gemini_bp, cloudflare_kv_bp, cloudflare_worker_bp, status_bp, llms_txt_bp, app_proxy_bp, visits_bp
+    from app.api import health_bp, clients_bp, sitemap_bp, page_analytics_bp, apify_bp, gemini_bp, cloudflare_kv_bp, cloudflare_worker_bp, status_bp, llms_txt_bp, app_proxy_bp, visits_bp, pixel_bp
     app.register_blueprint(health_bp)
     app.register_blueprint(clients_bp)
     app.register_blueprint(sitemap_bp)
@@ -60,6 +60,7 @@ def create_app(config_override: dict = None) -> Flask:
     app.register_blueprint(llms_txt_bp)
     app.register_blueprint(app_proxy_bp)
     app.register_blueprint(visits_bp)
+    app.register_blueprint(pixel_bp)
 
     # Register error handlers
     register_error_handlers(app)
@@ -93,6 +94,7 @@ def create_app(config_override: dict = None) -> Flask:
                 'llms_txt': '/api/v1/llms-txt',
                 'app_proxy': '/app-proxy',
                 'visits': '/api/v1/visits',
+                'pixel': '/api/v1/pixel',
             },
             'documentation': 'https://github.com/yourusername/ai-cache-layer',
         })
